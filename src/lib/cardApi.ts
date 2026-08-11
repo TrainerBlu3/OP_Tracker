@@ -1,20 +1,23 @@
 /**
- * Client for apitcg.com's One Piece TCG endpoint.
+ * Client for apitcg.com's shared /api/products endpoint, filtered to the
+ * One Piece TCG (?tcg=one-piece&type=card).
  *
- * IMPORTANT: this sandbox's network egress proxy blocks apitcg.com and its
- * docs, so the exact response field names below are best-effort -- taken
- * from a public example request (`x-api-key` header, `/api/one-piece/cards`
- * path, `name=` query filter) plus common conventions for this kind of API,
- * NOT a verified schema. Before relying on this in production:
+ * Base URL, endpoint shape, auth header, and pagination params are taken
+ * directly from apitcg.com's own OpenAPI docs. The individual card object's
+ * field names below are still best-effort, though -- this sandbox's network
+ * egress proxy blocks both apitcg.com and api.apitcg.com, so there was no
+ * way to fetch a real sample response to confirm them. Before relying on
+ * this in production:
  *
- *   1. Get an API key from https://apitcg.com
+ *   1. Get a free API key: register at https://apitcg.com/register, then
+ *      find it in the Developer Platform's API Key page.
  *   2. Set APITCG_API_KEY in .env
  *   3. Run `npm run sync:cards -- --sample` to print one raw card object
  *   4. Compare it against `normalizeCard()` below and fix any field-name
  *      mismatches.
  */
 
-const API_BASE_URL = "https://apitcg.com/api/one-piece";
+const API_BASE_URL = "https://api.apitcg.com/api";
 
 export interface RawApiTcgCard {
   id?: string;
@@ -61,7 +64,7 @@ function getApiKey(): string {
   const key = process.env.APITCG_API_KEY;
   if (!key) {
     throw new Error(
-      "APITCG_API_KEY is not set. Sign up at https://apitcg.com, then add the key to .env."
+      "APITCG_API_KEY is not set. Register at https://apitcg.com/register, grab your key from the Developer Platform, then add it to .env."
     );
   }
   return key;
@@ -69,12 +72,14 @@ function getApiKey(): string {
 
 export async function fetchCardPage(params: FetchCardsParams = {}): Promise<ApiTcgListResponse> {
   const query = new URLSearchParams();
+  query.set("tcg", "one-piece");
+  query.set("type", "card");
   query.set("page", String(params.page ?? 1));
   query.set("limit", String(params.limit ?? 100));
   if (params.name) query.set("name", params.name);
   if (params.set) query.set("set", params.set);
 
-  const res = await fetch(`${API_BASE_URL}/cards?${query.toString()}`, {
+  const res = await fetch(`${API_BASE_URL}/products?${query.toString()}`, {
     headers: { "x-api-key": getApiKey() },
   });
 

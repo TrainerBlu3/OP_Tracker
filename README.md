@@ -17,11 +17,11 @@ Deck validation logic (`src/lib/rules.ts`) checks: exactly one Leader, exactly `
 
 ## Card data source
 
-`scripts/sync-cards.ts` pulls cards from **apitcg.com**'s One Piece TCG endpoint into the local `Card` table.
+`scripts/sync-cards.ts` pulls cards from **apitcg.com**'s `/api/products` endpoint (filtered to `tcg=one-piece&type=card`) into the local `Card` table.
 
-> **Before relying on this**: this was built without a live connection to apitcg.com's docs (blocked in the sandbox this was scaffolded in), so `src/lib/cardApi.ts`'s field mapping is best-effort, based on a public example request, not a verified schema. Run the sample check below and fix `normalizeCard()` in that file if anything's off.
+> **Before relying on this**: the base URL, endpoint shape, auth header, and pagination in `src/lib/cardApi.ts` are confirmed against apitcg.com's own docs. The individual card object's field names, though, are still best-effort -- this was built in a sandbox that couldn't reach apitcg.com/api.apitcg.com at all, so there was no way to fetch a real sample response. Run the sample check below and fix `normalizeCard()` in that file if anything's off.
 
-1. Get an API key at https://apitcg.com and set `APITCG_API_KEY` in `.env`.
+1. Register (free) at https://apitcg.com/register, grab your key from the Developer Platform, and set `APITCG_API_KEY` in `.env`.
 2. Sanity-check the schema: `npm run sync:cards -- --sample` prints one raw card as JSON.
 3. Compare it to `normalizeCard()` in `src/lib/cardApi.ts` and adjust field names if they don't match.
 4. Run a full sync: `npm run sync:cards` (or `-- --set=OP01` to test one set first).

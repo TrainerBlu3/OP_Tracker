@@ -32,21 +32,23 @@ async function main() {
   const { sample, set } = parseArgs();
 
   if (sample) {
-    const page = await fetchCardPage({ page: 1, limit: 1, set });
+    const page = await fetchCardPage({ page: 1, limit: 1 });
     console.log(JSON.stringify(page.data?.[0] ?? page, null, 2));
     return;
   }
 
+  const setFilter = set?.toUpperCase();
   let page = 1;
   let upserted = 0;
 
   while (true) {
-    const result = await fetchCardPage({ page, limit: 100, set });
+    const result = await fetchCardPage({ page, limit: 100 });
     const cards = result.data ?? [];
     if (cards.length === 0) break;
 
     for (const raw of cards) {
       const normalized = normalizeCard(raw);
+      if (setFilter && normalized.setCode.toUpperCase() !== setFilter) continue;
       const block = getBlockForSetCode(normalized.setCode);
       await prisma.card.upsert({
         where: { code: normalized.code },

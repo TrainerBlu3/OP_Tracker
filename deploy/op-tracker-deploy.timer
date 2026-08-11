@@ -1,0 +1,12 @@
+# Polls for new commits every 5 minutes and deploys them if found.
+# Adjust OnUnitActiveSec below to change the polling interval.
+[Unit]
+Description=Poll for OP Tracker updates every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=op-tracker-deploy.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,21 @@
+# Runs the Next.js production server.
+# Install as a systemd --user unit (see deploy/README.md):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/op-tracker.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now op-tracker
+
+[Unit]
+Description=OP Tracker web app
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/op-tracker
+EnvironmentFile=%h/op-tracker/.env
+ExecStart=/usr/bin/env npm run start -- --port 3000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,106 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import type { DeckListItemDTO, FormatDTO } from "@/lib/types";
+
+export function DecksClient({
+  initialDecks,
+  formats,
+}: {
+  initialDecks: DeckListItemDTO[];
+  formats: FormatDTO[];
+}) {
+  const router = useRouter();
+  const [decks, setDecks] = useState(initialDecks);
+  const [name, setName] = useState("");
+  const [formatId, setFormatId] = useState(formats[0]?.id ?? "");
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreate(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setCreating(true);
+    const res = await fetch("/api/decks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), formatId: formatId || undefined }),
+    });
+    setCreating(false);
+    if (!res.ok) return;
+    const { deck } = await res.json();
+    router.push(`/decks/${deck.id}`);
+  }
+
+  async function handleDelete(deckId: string) {
+    const res = await fetch(`/api/decks/${deckId}`, { method: "DELETE" });
+    if (!res.ok) return;
+    setDecks((prev) => prev.filter((d) => d.id !== deckId));
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <label className="flex flex-col gap-1 text-sm">
+          Deck name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="My Red/Green Aggro"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Format
+          <select
+            value={formatId}
+            onChange={(e) => setFormatId(e.target.value)}
+            className="rounded-md border border-zinc-300 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            <option value="">No format (no legality checks)</option>
+            {formats.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          disabled={creating || !name.trim()}
+          className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          {creating ? "Creating..." : "New deck"}
+        </button>
+      </form>
+
+      {decks.length === 0 ? (
+        <p className="text-sm text-zinc-500">No decks yet. Create one above.</p>
+      ) : (
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {decks.map((deck) => {
+            const total = deck.cards.reduce((sum, c) => sum + c.quantity, 0);
+            return (
+              <li key={deck.id} className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+                <Link href={`/decks/${deck.id}`} className="font-medium hover:underline">
+                  {deck.name}
+                </Link>
+                <p className="text-xs text-zinc-500">
+                  {deck.leader ? deck.leader.name : "No leader set"} &middot; {total}/{deck.format?.deckSize ?? 50} cards
+                </p>
+                <p className="text-xs text-zinc-500">{deck.format?.name ?? "No format"}</p>
+                <button
+                  onClick={() => handleDelete(deck.id)}
+                  className="mt-1 self-start text-xs text-red-600 hover:underline dark:text-red-400"
+                >
+                  Delete
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}

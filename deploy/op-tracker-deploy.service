@@ -1,0 +1,12 @@
+# Runs deploy.sh once. Triggered on a schedule by op-tracker-deploy.timer.
+[Unit]
+Description=OP Tracker auto-deploy check
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/op-tracker
+EnvironmentFile=%h/op-tracker/.env
+Environment=OP_TRACKER_REPO_DIR=%h/op-tracker
+Environment=OP_TRACKER_BRANCH=main
+Environment=OP_TRACKER_SERVICE_NAME=op-tracker
+ExecStart=%h/op-tracker/deploy/deploy.sh

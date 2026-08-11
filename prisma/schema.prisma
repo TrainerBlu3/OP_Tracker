@@ -1,0 +1,121 @@
+// Prisma schema for OP Tracker.
+// Run `npx prisma migrate dev` after editing this file.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CardType {
+  LEADER
+  CHARACTER
+  EVENT
+  STAGE
+  DON
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  inventory InventoryItem[]
+  decks     Deck[]
+}
+
+/// Local catalog of cards, kept in sync with the external card data source
+/// (see scripts/sync-cards.ts). `block` is derived locally from `setCode`
+/// via lib/blockMap.ts, not taken from the external source.
+model Card {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. "OP01-001"
+  name        String
+  cardType    CardType
+  colors      String[] // e.g. ["Red"], ["Red", "Green"] for multicolor
+  cost        Int?
+  power       Int?
+  counter     Int?
+  life        Int? // leader life value
+  attribute   String? // e.g. "Strike", "Slash" (leaders/characters only)
+  family      String? // card "type" line, e.g. "Straw Hat Crew"
+  ability     String?
+  triggerText String?
+  rarity      String?
+  setCode     String // e.g. "OP01"
+  setName     String?
+  block       Int // legality block, derived from setCode, see lib/blockMap.ts
+  imageUrl    String?
+  updatedAt   DateTime @updatedAt
+
+  inventoryItems InventoryItem[]
+  deckCards      DeckCard[]
+  decksAsLeader  Deck[]          @relation("DeckLeader")
+
+  @@index([cardType])
+  @@index([setCode])
+  @@index([block])
+}
+
+model InventoryItem {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  quantity   Int      @default(0)
+  foilQty    Int      @default(0)
+  notes      String?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, cardId])
+  @@index([userId])
+}
+
+/// A tournament/legality ruleset. Editable so it can be updated as official
+/// rotation rules change over time, instead of hardcoding "no Block 1" in code.
+model Format {
+  id               String   @id @default(cuid())
+  name             String   @unique // e.g. "Standard", "Unlimited"
+  description      String?
+  deckSize         Int      @default(50)
+  maxCopiesPerCard Int      @default(4)
+  bannedBlocks     Int[]    @default([])
+  bannedCardCodes  String[] @default([])
+  isActive         Boolean  @default(true)
+
+  decks Deck[]
+}
+
+model Deck {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  leaderId   String?
+  leader     Card?    @relation("DeckLeader", fields: [leaderId], references: [id])
+  formatId   String?
+  format     Format?  @relation(fields: [formatId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  cards DeckCard[]
+
+  @@index([userId])
+}
+
+model DeckCard {
+  id       String @id @default(cuid())
+  deckId   String
+  deck     Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  cardId   String
+  card     Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  quantity Int    @default(1)
+
+  @@unique([deckId, cardId])
+}

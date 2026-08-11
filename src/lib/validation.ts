@@ -28,3 +28,7 @@ export const deckCardUpsertSchema = z.object({
   cardId: z.string().min(1),
   quantity: z.number().int().min(0).max(4),
 });
+
+export const deckImportSchema = z.object({
+  text: z.string().min(1),
+});

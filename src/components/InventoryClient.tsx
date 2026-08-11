@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
+import { CardThumbnail } from "@/components/CardThumbnail";
 import { COLOR_STYLES, type CardDTO, type InventoryItemDTO } from "@/lib/types";
 
 export function InventoryClient({ initialItems }: { initialItems: InventoryItemDTO[] }) {
@@ -91,6 +92,7 @@ export function InventoryClient({ initialItems }: { initialItems: InventoryItemD
           <table className="w-full text-sm">
             <thead className="bg-zinc-100 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
               <tr>
+                <th className="px-3 py-2" />
                 <th className="px-3 py-2">Card</th>
                 <th className="px-3 py-2">Set</th>
                 <th className="px-3 py-2">Colors</th>
@@ -102,6 +104,9 @@ export function InventoryClient({ initialItems }: { initialItems: InventoryItemD
             <tbody>
               {items.map((item) => (
                 <tr key={item.id} className="border-t border-zinc-200 dark:border-zinc-800">
+                  <td className="px-3 py-2">
+                    <CardThumbnail imageUrl={item.card.imageUrl} />
+                  </td>
                   <td className="px-3 py-2">
                     <p className="font-medium">{item.card.name}</p>
                     <p className="text-xs text-zinc-500">{item.card.code}</p>

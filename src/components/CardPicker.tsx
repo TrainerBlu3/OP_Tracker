@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isCardFormatLegal, type FormatRules } from "@/lib/rules";
 import { CARD_COLORS, CARD_TYPES, COLOR_STYLES, type CardDTO } from "@/lib/types";
+import { CardThumbnail } from "@/components/CardThumbnail";
 
 interface CardPickerProps {
   /** Renders the action button/control for a given card (e.g. "Add", quantity stepper). */
@@ -126,18 +127,21 @@ export function CardPicker({ renderAction, typeOptions = CARD_TYPES, lockedCardT
                   }`}
                   title={illegalReason}
                 >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{card.name}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-zinc-500">
-                      <span>{card.code}</span>
-                      {card.colors.map((c) => (
-                        <span key={c} className={`rounded px-1.5 py-0.5 ${COLOR_STYLES[c] ?? ""}`}>
-                          {c}
-                        </span>
-                      ))}
-                      {card.cost !== null && <span>Cost {card.cost}</span>}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CardThumbnail imageUrl={card.imageUrl} />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{card.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-zinc-500">
+                        <span>{card.code}</span>
+                        {card.colors.map((c) => (
+                          <span key={c} className={`rounded px-1.5 py-0.5 ${COLOR_STYLES[c] ?? ""}`}>
+                            {c}
+                          </span>
+                        ))}
+                        {card.cost !== null && <span>Cost {card.cost}</span>}
+                      </div>
+                      {illegalReason && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{illegalReason}</p>}
                     </div>
-                    {illegalReason && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{illegalReason}</p>}
                   </div>
                   <div className="shrink-0">{renderAction(card)}</div>
                 </li>

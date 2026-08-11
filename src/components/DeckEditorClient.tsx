@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
+import { CardThumbnail } from "@/components/CardThumbnail";
 import { validateDeck } from "@/lib/rules";
 import { COLOR_STYLES, type DeckDetailDTO, type CardDTO, type FormatDTO } from "@/lib/types";
 
@@ -21,6 +22,10 @@ export function DeckEditorClient({
   const [name, setName] = useState(initialDeck.name);
   const [showLeaderPicker, setShowLeaderPicker] = useState(false);
   const [showCardPicker, setShowCardPicker] = useState(false);
+  const [showImportBox, setShowImportBox] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   async function patchDeck(data: Record<string, unknown>) {
     const res = await fetch(`/api/decks/${deck.id}`, {
@@ -43,6 +48,32 @@ export function DeckEditorClient({
     if (!res.ok) return;
     const { deck: updated } = await res.json();
     setDeck(updated);
+  }
+
+  async function handleImport() {
+    if (!importText.trim()) return;
+    setImporting(true);
+    setImportStatus(null);
+    try {
+      const res = await fetch(`/api/decks/${deck.id}/cards/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: importText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setImportStatus(data.error ?? "Import failed");
+        return;
+      }
+      setDeck(data.deck);
+      const parts = [`Imported ${data.imported} card${data.imported === 1 ? "" : "s"}`];
+      if (data.leaderSet) parts.push("set leader");
+      if (data.notFound.length > 0) parts.push(`${data.notFound.length} code(s) not found: ${data.notFound.join(", ")}`);
+      setImportStatus(parts.join(" — "));
+      setImportText("");
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function handleDeleteDeck() {
@@ -106,6 +137,7 @@ export function DeckEditorClient({
         </div>
         {deck.leader ? (
           <div className="mt-2 flex items-center gap-2 text-sm">
+            <CardThumbnail imageUrl={deck.leader.imageUrl} />
             <span className="font-medium">{deck.leader.name}</span>
             <span className="text-zinc-500">{deck.leader.code}</span>
             {deck.leader.colors.map((c) => (
@@ -166,10 +198,44 @@ export function DeckEditorClient({
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Main deck</h2>
-          <button onClick={() => setShowCardPicker((s) => !s)} className="text-sm text-zinc-500 hover:underline">
-            {showCardPicker ? "Done adding" : "Add cards"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowImportBox((s) => !s)}
+              className="text-sm text-zinc-500 hover:underline"
+            >
+              {showImportBox ? "Close import" : "Paste decklist"}
+            </button>
+            <button onClick={() => setShowCardPicker((s) => !s)} className="text-sm text-zinc-500 hover:underline">
+              {showCardPicker ? "Done adding" : "Add cards"}
+            </button>
+          </div>
         </div>
+
+        {showImportBox && (
+          <div className="mt-4 border-b border-zinc-200 pb-4 dark:border-zinc-800">
+            <p className="mb-2 text-sm text-zinc-500">
+              Paste a decklist export (one card per line, e.g. <code>4xOP16-081</code>). A Leader code in the list
+              is detected automatically.
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={6}
+              placeholder={"2xOP14-096\n1xOP16-079\n4xOP16-081"}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                onClick={handleImport}
+                disabled={importing || !importText.trim()}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-zinc-700"
+              >
+                {importing ? "Importing..." : "Import"}
+              </button>
+              {importStatus && <p className="text-sm text-zinc-500">{importStatus}</p>}
+            </div>
+          </div>
+        )}
 
         {showCardPicker && (
           <div className="mt-4 border-b border-zinc-200 pb-4 dark:border-zinc-800">
@@ -212,9 +278,12 @@ export function DeckEditorClient({
                   key={deckCard.id}
                   className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{deckCard.card.name}</p>
-                    <p className="text-xs text-zinc-500">{deckCard.card.code}</p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CardThumbnail imageUrl={deckCard.card.imageUrl} />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{deckCard.card.name}</p>
+                      <p className="text-xs text-zinc-500">{deckCard.card.code}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <button

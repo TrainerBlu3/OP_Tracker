@@ -1,15 +1,20 @@
 # Caddy reverse proxy: terminates HTTPS and forwards to the Next.js app on
-# localhost:3000. Caddy fetches and renews the TLS cert automatically via
+# localhost:3001. Caddy fetches and renews the TLS cert automatically via
 # Let's Encrypt (HTTP-01 challenge on port 80) -- no manual cert handling.
+#
+# This is only OP Tracker's site block. If this VM already runs another
+# app (e.g. QuickDash) with its own Caddy site block, APPEND this block to
+# the existing /etc/caddy/Caddyfile rather than replacing it -- see
+# deploy/README-https.md for the two-apps-on-one-VM walkthrough.
 #
 # Replace YOUR_VM_EXTERNAL_IP below with your VM's actual static external
 # IP, dashes instead of dots (e.g. 34.123.45.67 -> 34-123-45-67). sslip.io
 # is a public DNS service that resolves <anything>.<ip-with-dashes>.sslip.io
 # straight to that IP -- it gets you a real, publicly resolvable hostname
 # (which Let's Encrypt requires to issue a cert) without owning a domain.
-#
-# Install: see deploy/README-https.md in this folder for the full walkthrough.
+# The "optracker." subdomain prefix here just keeps it distinct from
+# whatever hostname another app on this VM already uses.
 
-YOUR_VM_EXTERNAL_IP.sslip.io {
-	reverse_proxy localhost:3000
+optracker.YOUR_VM_EXTERNAL_IP.sslip.io {
+	reverse_proxy localhost:3001
 }

@@ -4,6 +4,11 @@
 #   cp deploy/op-tracker.service ~/.config/systemd/user/
 #   systemctl --user daemon-reload
 #   systemctl --user enable --now op-tracker
+#
+# Port 3001, not 3000 -- if this VM also runs another app (e.g. QuickDash,
+# which defaults to 3000) alongside this one, they'd otherwise collide.
+# Change it back to 3000 (and update deploy/Caddyfile's proxy target to
+# match) if this is the only app on the VM.
 
 [Unit]
 Description=OP Tracker web app
@@ -13,7 +18,7 @@ After=network.target
 Type=simple
 WorkingDirectory=%h/op-tracker
 EnvironmentFile=%h/op-tracker/.env
-ExecStart=/usr/bin/env npm run start -- --port 3000
+ExecStart=/usr/bin/env npm run start -- --port 3001
 Restart=on-failure
 RestartSec=5
 

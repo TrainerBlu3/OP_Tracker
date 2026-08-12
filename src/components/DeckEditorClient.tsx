@@ -13,9 +13,12 @@ const MAIN_DECK_TYPES = ["CHARACTER", "EVENT", "STAGE"] as const;
 export function DeckEditorClient({
   initialDeck,
   formats,
+  ownedByCode,
 }: {
   initialDeck: DeckDetailDTO;
   formats: FormatDTO[];
+  /** Copies owned per card code, summed across all art variants. */
+  ownedByCode: Record<string, number>;
 }) {
   const router = useRouter();
   const [deck, setDeck] = useState(initialDeck);
@@ -93,6 +96,28 @@ export function DeckEditorClient({
       }),
     [deck]
   );
+
+  // What's missing from inventory, aggregated by card code (any owned art
+  // variant counts) -- not tied to the exact printing chosen in the deck.
+  const shortfalls = useMemo(() => {
+    const neededByCode = new Map<string, { name: string; quantity: number }>();
+    if (deck.leader) {
+      neededByCode.set(deck.leader.code, { name: deck.leader.name, quantity: 1 });
+    }
+    for (const dc of deck.cards) {
+      const entry = neededByCode.get(dc.card.code) ?? { name: dc.card.name, quantity: 0 };
+      entry.quantity += dc.quantity;
+      neededByCode.set(dc.card.code, entry);
+    }
+    const result: { code: string; name: string; needed: number; owned: number; missing: number }[] = [];
+    for (const [code, { name, quantity }] of neededByCode) {
+      const owned = ownedByCode[code] ?? 0;
+      if (owned < quantity) {
+        result.push({ code, name, needed: quantity, owned, missing: quantity - owned });
+      }
+    }
+    return result.sort((a, b) => a.code.localeCompare(b.code));
+  }, [deck, ownedByCode]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -192,6 +217,31 @@ export function DeckEditorClient({
         )}
         {validation.isLegal && validation.warnings.length === 0 && (
           <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">Deck is legal.</p>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h2 className="font-medium">Inventory check</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          What you still need to acquire, compared against your Inventory (any art variant of a card counts).
+        </p>
+        {shortfalls.length === 0 ? (
+          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+            You own enough copies of everything in this deck.
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-1">
+            {shortfalls.map((s) => (
+              <li key={s.code} className="flex items-center justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate">
+                  {s.name} <span className="text-zinc-500">{s.code}</span>
+                </span>
+                <span className="shrink-0 rounded px-1.5 py-0.5 text-xs text-amber-800 bg-amber-100 dark:bg-amber-950 dark:text-amber-300">
+                  Own {s.owned}/{s.needed} — need {s.missing} more
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

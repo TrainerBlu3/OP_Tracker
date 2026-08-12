@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   const cardType = searchParams.get("cardType");
   const setCode = searchParams.get("setCode");
   const block = searchParams.get("block");
+  const role = searchParams.get("role");
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get("limit") ?? "50", 10) || 50));
 
@@ -18,6 +19,7 @@ export async function GET(req: Request) {
   if (cardType) where.cardType = cardType as CardType;
   if (setCode) where.setCode = setCode;
   if (block) where.block = Number.parseInt(block, 10);
+  if (role) where.roles = { has: role };
 
   const [cards, total] = await Promise.all([
     prisma.card.findMany({

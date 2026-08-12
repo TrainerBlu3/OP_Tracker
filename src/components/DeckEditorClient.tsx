@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { validateDeck } from "@/lib/rules";
-import { COLOR_STYLES, type DeckDetailDTO, type CardDTO, type FormatDTO } from "@/lib/types";
+import { COLOR_STYLES, type DeckDetailDTO, type DeckCardDTO, type CardDTO, type FormatDTO } from "@/lib/types";
 
 const MAIN_DECK_TYPES = ["CHARACTER", "EVENT", "STAGE"] as const;
 
@@ -43,14 +43,35 @@ export function DeckEditorClient({
 
   async function setCardQuantity(card: CardDTO, quantity: number) {
     if (quantity < 0 || quantity > (deck.format?.maxCopiesPerCard ?? 4)) return;
-    const res = await fetch(`/api/decks/${deck.id}/cards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cardId: card.id, quantity }),
+    const prevDeck = deck;
+
+    // Update the screen immediately; sync to the server in the background.
+    setDeck((prev) => {
+      const existingIndex = prev.cards.findIndex((c) => c.cardId === card.id);
+      if (quantity === 0) {
+        return { ...prev, cards: prev.cards.filter((c) => c.cardId !== card.id) };
+      }
+      if (existingIndex === -1) {
+        const optimisticEntry: DeckCardDTO = { id: `temp-${card.id}`, deckId: prev.id, cardId: card.id, quantity, card };
+        return { ...prev, cards: [...prev.cards, optimisticEntry] };
+      }
+      const cards = [...prev.cards];
+      cards[existingIndex] = { ...cards[existingIndex], quantity };
+      return { ...prev, cards };
     });
-    if (!res.ok) return;
-    const { deck: updated } = await res.json();
-    setDeck(updated);
+
+    try {
+      const res = await fetch(`/api/decks/${deck.id}/cards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId: card.id, quantity }),
+      });
+      if (!res.ok) throw new Error("Failed to update deck");
+      const { deck: updated } = await res.json();
+      setDeck(updated);
+    } catch {
+      setDeck(prevDeck);
+    }
   }
 
   async function handleImport() {

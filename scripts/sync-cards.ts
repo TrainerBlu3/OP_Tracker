@@ -1,7 +1,9 @@
 /**
  * Pulls card data from apitcg.com's One Piece TCG endpoint and upserts it
- * into the local Card table (matched by `code`). `block` is computed
- * locally from `setCode`, not taken from the API -- see src/lib/blockMap.ts.
+ * into the local Card table (matched by `apitcgId`, apitcg.com's own
+ * per-printing product id -- NOT `code`, since multiple art variants of
+ * the same game card share one `code`). `block` is computed locally from
+ * `setCode`, not taken from the API -- see src/lib/blockMap.ts.
  *
  * Usage:
  *   npm run sync:cards -- --sample        Print one raw card and exit
@@ -51,7 +53,7 @@ async function main() {
       if (setFilter && normalized.setCode.toUpperCase() !== setFilter) continue;
       const block = getBlockForSetCode(normalized.setCode);
       await prisma.card.upsert({
-        where: { code: normalized.code },
+        where: { apitcgId: normalized.apitcgId },
         create: { ...normalized, block },
         update: { ...normalized, block },
       });

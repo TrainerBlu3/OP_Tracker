@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { deckImportSchema } from "@/lib/validation";
+import { sortVariants } from "@/lib/cardVariants";
 
 /**
  * Parses decklist export lines. Supports both "4xOP16-081" (onepiece.gg)
@@ -42,7 +43,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const cards = await prisma.card.findMany({ where: { code: { in: entries.map((e) => e.code) } } });
-  const cardByCode = new Map(cards.map((c) => [c.code, c]));
+  // Multiple rows can share a code (art variants); pick the "plain"
+  // printing as the representative one for deck-building purposes.
+  const cardsByCode = new Map<string, typeof cards>();
+  for (const card of cards) {
+    cardsByCode.set(card.code, [...(cardsByCode.get(card.code) ?? []), card]);
+  }
+  const cardByCode = new Map(
+    [...cardsByCode.entries()].map(([code, variants]) => [code, sortVariants(variants)[0]])
+  );
 
   const notFound: string[] = [];
   let leaderId: string | null = null;

@@ -121,10 +121,13 @@ const SAMPLE_CARDS = [
 
 async function main() {
   for (const card of SAMPLE_CARDS) {
+    // "seed-" prefix keeps these placeholder ids from ever colliding with a
+    // real apitcg.com numeric id once a real sync runs.
+    const apitcgId = `seed-${card.code}`;
     await prisma.card.upsert({
-      where: { code: card.code },
-      create: { ...card, block: getBlockForSetCode(card.setCode) },
-      update: { ...card, block: getBlockForSetCode(card.setCode) },
+      where: { apitcgId },
+      create: { ...card, apitcgId, block: getBlockForSetCode(card.setCode) },
+      update: { ...card, apitcgId, block: getBlockForSetCode(card.setCode) },
     });
   }
 

@@ -116,6 +116,9 @@ export function normalizeCard(raw: RawApiTcgCard) {
   if (!code) {
     throw new Error(`Card is missing a code: ${JSON.stringify(raw)}`);
   }
+  if (raw._id === undefined || raw._id === null) {
+    throw new Error(`Card is missing an _id: ${JSON.stringify(raw)}`);
+  }
 
   const attrs = raw.attributes ?? {};
   // Derived from the code prefix (e.g. "OP16", "EB01", "ST22"), not
@@ -125,6 +128,7 @@ export function normalizeCard(raw: RawApiTcgCard) {
   const image = raw.images?.[0];
 
   return {
+    apitcgId: String(raw._id),
     code,
     name: raw.name ?? code,
     cardType: normalizeCardType(attrs.CardType),

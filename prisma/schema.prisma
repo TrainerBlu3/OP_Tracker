@@ -34,7 +34,8 @@ model User {
 /// via lib/blockMap.ts, not taken from the external source.
 model Card {
   id          String   @id @default(cuid())
-  code        String   @unique // e.g. "OP01-001"
+  apitcgId    String   @unique // apitcg.com's own product id -- unique per art printing
+  code        String // e.g. "OP01-001" -- shared across art variants of the same game card, not unique
   name        String
   cardType    CardType
   colors      String[] // e.g. ["Red"], ["Red", "Green"] for multicolor
@@ -60,6 +61,7 @@ model Card {
   @@index([cardType])
   @@index([setCode])
   @@index([block])
+  @@index([code])
 }
 
 model InventoryItem {

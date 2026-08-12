@@ -32,6 +32,7 @@ export function CardPicker({
   format,
   groupVariants = true,
 }: CardPickerProps) {
+  const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [color, setColor] = useState("");
   const [color2, setColor2] = useState("");
@@ -43,6 +44,13 @@ export function CardPicker({
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [variantIndex, setVariantIndex] = useState<Record<string, number>>({});
+
+  // Debounce the search text so typing doesn't fire a request per keystroke;
+  // the other filters (dropdowns) are low-frequency and stay instant.
+  useEffect(() => {
+    const timer = setTimeout(() => setQ(qInput), 300);
+    return () => clearTimeout(timer);
+  }, [qInput]);
 
   const params = useMemo(() => {
     const p = new URLSearchParams();
@@ -90,8 +98,8 @@ export function CardPicker({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          value={qInput}
+          onChange={(e) => setQInput(e.target.value)}
           placeholder="Search by name..."
           className="min-w-48 flex-1 rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />

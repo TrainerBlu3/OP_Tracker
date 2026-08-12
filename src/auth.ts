@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
+import { checkLoginRateLimit, recordFailedLogin, resetLoginRateLimit } from "@/lib/rateLimit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -21,16 +22,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Checked before touching the database or hashing anything, so a
+        // locked-out email can't be used to keep hammering bcrypt (which
+        // is deliberately slow) or the DB.
+        const rateLimit = checkLoginRateLimit(email);
+        if (!rateLimit.allowed) return null;
+
         const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-        if (!user) return null;
+        if (!user) {
+          recordFailedLogin(email);
+          return null;
+        }
         // Disabled accounts fail the same as a wrong password -- an admin
         // deactivating someone shouldn't leak "this account exists but is
         // disabled" to whoever's trying it.
-        if (!user.active) return null;
+        if (!user.active) {
+          recordFailedLogin(email);
+          return null;
+        }
 
         const valid = await verifyPassword(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          recordFailedLogin(email);
+          return null;
+        }
 
+        resetLoginRateLimit(email);
         return {
           id: user.id,
           email: user.email,

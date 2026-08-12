@@ -94,7 +94,9 @@ export async function fetchCardPage(params: FetchCardsParams = {}): Promise<ApiT
 function toStringArray(value: string | string[] | null | undefined): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value;
-  return value.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+  // apitcg.com uses ";" for multicolor cards' Color field (e.g. "Blue;Yellow")
+  // and for multi-trait Subtypes -- also accept "/" and "," seen elsewhere.
+  return value.split(/[/,;]/).map((s) => s.trim()).filter(Boolean);
 }
 
 function toInt(value: number | string | null | undefined): number | null {

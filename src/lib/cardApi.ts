@@ -2,46 +2,44 @@
  * Client for apitcg.com's shared /api/products endpoint, filtered to the
  * One Piece TCG (?tcg=one-piece&type=card).
  *
- * Base URL, endpoint shape, auth header, and pagination params are taken
- * directly from apitcg.com's own OpenAPI docs. The individual card object's
- * field names below are still best-effort, though -- this sandbox's network
- * egress proxy blocks both apitcg.com and api.apitcg.com, so there was no
- * way to fetch a real sample response to confirm them. Before relying on
- * this in production:
- *
- *   1. Get a free API key: register at https://apitcg.com/register, then
- *      find it in the Developer Platform's API Key page.
- *   2. Set APITCG_API_KEY in .env
- *   3. Run `npm run sync:cards -- --sample` to print one raw card object
- *   4. Compare it against `normalizeCard()` below and fix any field-name
- *      mismatches.
+ * Base URL, endpoint shape, auth header, and pagination params, plus
+ * `normalizeCard()`'s field mapping below, were all confirmed against a
+ * real sample response (`npm run sync:cards -- --sample`) in August 2026.
+ * Card-specific fields (color, cost, power, etc.) live under `attributes`,
+ * keyed by their display name as apitcg.com shows them on the card. If a
+ * future API change breaks this, re-run the sample check and fix the
+ * mapping below.
  */
+
+import { extractRoles } from "@/lib/cardRoles";
 
 const API_BASE_URL = "https://api.apitcg.com/api";
 
+export interface RawApiTcgCardAttributes {
+  Rarity?: string;
+  Number?: string;
+  Description?: string;
+  Color?: string;
+  CardType?: string;
+  Cost?: string;
+  Power?: string;
+  Life?: string;
+  Counter?: string;
+  Attribute?: string;
+  Subtypes?: string;
+  Trigger?: string;
+  Artist?: string;
+  [key: string]: unknown;
+}
+
 export interface RawApiTcgCard {
-  id?: string;
+  _id?: number | string;
   code?: string;
-  cardNumber?: string;
   name?: string;
-  type?: string;
-  cardType?: string;
-  rarity?: string;
-  cost?: number | string | null;
-  power?: number | string | null;
-  counter?: number | string | null;
-  life?: number | string | null;
-  color?: string | string[] | null;
-  colors?: string[] | null;
-  family?: string | null;
-  attribute?: string | { name?: string } | null;
-  effect?: string | null;
-  ability?: string | null;
-  trigger?: string | null;
-  set?: { id?: string; name?: string } | string | null;
-  set_name?: string | null;
-  images?: { small?: string; large?: string } | null;
-  image?: string | null;
+  set?: { _id?: string; name?: string; code?: string } | null;
+  images?: { small?: string; medium?: string; large?: string }[] | null;
+  attributes?: RawApiTcgCardAttributes;
+  markets?: { tcgplayer?: { prices?: { low?: number; mid?: number; high?: number; market?: number } } } | null;
   [key: string]: unknown;
 }
 
@@ -57,7 +55,6 @@ export interface FetchCardsParams {
   page?: number;
   limit?: number;
   name?: string;
-  set?: string;
 }
 
 function getApiKey(): string {
@@ -70,6 +67,12 @@ function getApiKey(): string {
   return key;
 }
 
+/**
+ * apitcg.com's own `set` query param on this endpoint doesn't actually
+ * filter (confirmed: any value returns zero results), so `--set=` is
+ * implemented client-side in sync-cards.ts by matching the code prefix
+ * against every page instead.
+ */
 export async function fetchCardPage(params: FetchCardsParams = {}): Promise<ApiTcgListResponse> {
   const query = new URLSearchParams();
   query.set("tcg", "one-piece");
@@ -77,7 +80,6 @@ export async function fetchCardPage(params: FetchCardsParams = {}): Promise<ApiT
   query.set("page", String(params.page ?? 1));
   query.set("limit", String(params.limit ?? 100));
   if (params.name) query.set("name", params.name);
-  if (params.set) query.set("set", params.set);
 
   const res = await fetch(`${API_BASE_URL}/products?${query.toString()}`, {
     headers: { "x-api-key": getApiKey() },
@@ -93,7 +95,9 @@ export async function fetchCardPage(params: FetchCardsParams = {}): Promise<ApiT
 function toStringArray(value: string | string[] | null | undefined): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value;
-  return value.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+  // apitcg.com uses ";" for multicolor cards' Color field (e.g. "Blue;Yellow")
+  // and for multi-trait Subtypes -- also accept "/" and "," seen elsewhere.
+  return value.split(/[/,;]/).map((s) => s.trim()).filter(Boolean);
 }
 
 function toInt(value: number | string | null | undefined): number | null {
@@ -113,31 +117,44 @@ function normalizeCardType(raw: string | undefined): "LEADER" | "CHARACTER" | "E
 
 /** Maps a raw apitcg.com card into our Prisma `Card` create/update shape. */
 export function normalizeCard(raw: RawApiTcgCard) {
-  const code = raw.code ?? raw.cardNumber;
+  const code = raw.code;
   if (!code) {
-    throw new Error(`Card is missing a code/cardNumber: ${JSON.stringify(raw)}`);
+    throw new Error(`Card is missing a code: ${JSON.stringify(raw)}`);
+  }
+  if (raw._id === undefined || raw._id === null) {
+    throw new Error(`Card is missing an _id: ${JSON.stringify(raw)}`);
   }
 
-  const setCode = typeof raw.set === "string" ? raw.set : raw.set?.id ?? code.split("-")[0];
-  const setName = typeof raw.set === "object" ? raw.set?.name : raw.set_name ?? undefined;
-  const attribute = typeof raw.attribute === "string" ? raw.attribute : raw.attribute?.name ?? undefined;
+  const attrs = raw.attributes ?? {};
+  // Derived from the code prefix (e.g. "OP16", "EB01", "ST22"), not
+  // raw.set.code -- that field is missing for mainline "OP" sets and
+  // inconsistently formatted ("EB-01" vs "ST-22") when present.
+  const setCode = code.split("-")[0];
+  const image = raw.images?.[0];
+  const cardType = normalizeCardType(attrs.CardType);
+  const ability = attrs.Description ?? null;
+  const triggerText = attrs.Trigger ?? null;
 
   return {
+    apitcgId: String(raw._id),
     code,
     name: raw.name ?? code,
-    cardType: normalizeCardType(raw.type ?? raw.cardType),
-    colors: toStringArray(raw.colors ?? raw.color),
-    cost: toInt(raw.cost),
-    power: toInt(raw.power),
-    counter: toInt(raw.counter),
-    life: toInt(raw.life),
-    attribute: attribute ?? null,
-    family: raw.family ?? null,
-    ability: raw.ability ?? raw.effect ?? null,
-    triggerText: raw.trigger ?? null,
-    rarity: raw.rarity ?? null,
+    cardType,
+    colors: toStringArray(attrs.Color),
+    cost: toInt(attrs.Cost),
+    power: toInt(attrs.Power),
+    counter: toInt(attrs.Counter),
+    life: toInt(attrs.Life),
+    attribute: attrs.Attribute ?? null,
+    family: attrs.Subtypes ?? null,
+    ability,
+    triggerText,
+    rarity: attrs.Rarity ?? null,
     setCode,
-    setName: setName ?? null,
-    imageUrl: raw.images?.large ?? raw.images?.small ?? raw.image ?? null,
+    setName: raw.set?.name ?? null,
+    imageUrl: image?.large ?? image?.medium ?? image?.small ?? null,
+    roles: extractRoles({ ability, triggerText, cardType }),
+    priceMarket: raw.markets?.tcgplayer?.prices?.market ?? null,
+    priceLow: raw.markets?.tcgplayer?.prices?.low ?? null,
   };
 }

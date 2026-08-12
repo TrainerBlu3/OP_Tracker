@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import type { DeckListItemDTO, FormatDTO } from "@/lib/types";
+import { baseCardName } from "@/lib/cardVariants";
+
+const NO_LEADER_GROUP = "No leader set";
 
 export function DecksClient({
   initialDecks,
@@ -38,6 +41,22 @@ export function DecksClient({
     if (!res.ok) return;
     setDecks((prev) => prev.filter((d) => d.id !== deckId));
   }
+
+  // Grouped by leader *archetype* (art variants of the same leader share a
+  // group), so e.g. every "Yamato" build sits together regardless of which
+  // exact printing was picked as the leader.
+  const groups = useMemo(() => {
+    const byGroup = new Map<string, DeckListItemDTO[]>();
+    for (const deck of decks) {
+      const key = deck.leader ? baseCardName(deck.leader.name) : NO_LEADER_GROUP;
+      byGroup.set(key, [...(byGroup.get(key) ?? []), deck]);
+    }
+    return [...byGroup.entries()].sort(([a], [b]) => {
+      if (a === NO_LEADER_GROUP) return 1;
+      if (b === NO_LEADER_GROUP) return -1;
+      return a.localeCompare(b);
+    });
+  }, [decks]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -78,28 +97,40 @@ export function DecksClient({
       {decks.length === 0 ? (
         <p className="text-sm text-zinc-500">No decks yet. Create one above.</p>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {decks.map((deck) => {
-            const total = deck.cards.reduce((sum, c) => sum + c.quantity, 0);
-            return (
-              <li key={deck.id} className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-                <Link href={`/decks/${deck.id}`} className="font-medium hover:underline">
-                  {deck.name}
-                </Link>
-                <p className="text-xs text-zinc-500">
-                  {deck.leader ? deck.leader.name : "No leader set"} &middot; {total}/{deck.format?.deckSize ?? 50} cards
-                </p>
-                <p className="text-xs text-zinc-500">{deck.format?.name ?? "No format"}</p>
-                <button
-                  onClick={() => handleDelete(deck.id)}
-                  className="mt-1 self-start text-xs text-red-600 hover:underline dark:text-red-400"
-                >
-                  Delete
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex flex-col gap-6">
+          {groups.map(([groupName, groupDecks]) => (
+            <div key={groupName} className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-zinc-500">
+                {groupName} <span className="font-normal">({groupDecks.length})</span>
+              </h2>
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {groupDecks.map((deck) => {
+                  const total = deck.cards.reduce((sum, c) => sum + c.quantity, 0);
+                  return (
+                    <li
+                      key={deck.id}
+                      className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+                    >
+                      <Link href={`/decks/${deck.id}`} className="font-medium hover:underline">
+                        {deck.name}
+                      </Link>
+                      <p className="text-xs text-zinc-500">
+                        {deck.leader ? deck.leader.name : "No leader set"} &middot; {total}/{deck.format?.deckSize ?? 50} cards
+                      </p>
+                      <p className="text-xs text-zinc-500">{deck.format?.name ?? "No format"}</p>
+                      <button
+                        onClick={() => handleDelete(deck.id)}
+                        className="mt-1 self-start text-xs text-red-600 hover:underline dark:text-red-400"
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

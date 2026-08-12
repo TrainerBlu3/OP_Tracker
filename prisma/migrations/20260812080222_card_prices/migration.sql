@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Card" ADD COLUMN     "priceLow" DOUBLE PRECISION,
+ADD COLUMN     "priceMarket" DOUBLE PRECISION;

@@ -9,7 +9,7 @@ const SPECIAL_MARKERS = ["Alternate Art", "Manga", "(SP)", "Parallel", "Reprint"
  * e.g. "Yamato (079) (Alternate Art)" -> "Yamato",
  * "Franky - OP09-072 (Reprint)" -> "Franky".
  */
-function baseCardName(name: string): string {
+export function baseCardName(name: string): string {
   return name.replace(REPRINT_SUFFIX, "").replace(TRAILING_PARENS, "").trim();
 }
 

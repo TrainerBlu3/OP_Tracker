@@ -56,6 +56,10 @@ model Card {
   // parsed from the bracketed tags in `ability`/`triggerText` -- see
   // lib/cardRoles.ts. Not from the API; purely derived from data we already have.
   roles       String[] @default([])
+  // TCGplayer market prices (USD) via apitcg.com's markets.tcgplayer.prices.
+  // Null when apitcg.com has no listing for this printing.
+  priceMarket Float?
+  priceLow    Float?
   updatedAt   DateTime @updatedAt
 
   inventoryItems InventoryItem[]

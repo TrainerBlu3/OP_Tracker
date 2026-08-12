@@ -39,6 +39,7 @@ export interface RawApiTcgCard {
   set?: { _id?: string; name?: string; code?: string } | null;
   images?: { small?: string; medium?: string; large?: string }[] | null;
   attributes?: RawApiTcgCardAttributes;
+  markets?: { tcgplayer?: { prices?: { low?: number; mid?: number; high?: number; market?: number } } } | null;
   [key: string]: unknown;
 }
 
@@ -153,5 +154,7 @@ export function normalizeCard(raw: RawApiTcgCard) {
     setName: raw.set?.name ?? null,
     imageUrl: image?.large ?? image?.medium ?? image?.small ?? null,
     roles: extractRoles({ ability, triggerText, cardType }),
+    priceMarket: raw.markets?.tcgplayer?.prices?.market ?? null,
+    priceLow: raw.markets?.tcgplayer?.prices?.low ?? null,
   };
 }

@@ -11,6 +11,15 @@ export const inventoryUpsertSchema = z.object({
   quantity: z.number().int().min(0),
   foilQty: z.number().int().min(0).optional(),
   notes: z.string().max(500).optional(),
+  folderId: z.string().nullable().optional(),
+});
+
+export const inventoryItemUpdateSchema = z.object({
+  folderId: z.string().nullable(),
+});
+
+export const inventoryFolderCreateSchema = z.object({
+  name: z.string().min(1).max(60),
 });
 
 export const deckCreateSchema = z.object({

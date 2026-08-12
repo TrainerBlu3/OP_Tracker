@@ -25,8 +25,9 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
-  inventory InventoryItem[]
-  decks     Deck[]
+  inventory        InventoryItem[]
+  inventoryFolders InventoryFolder[]
+  decks            Deck[]
 }
 
 /// Local catalog of cards, kept in sync with the external card data source
@@ -72,19 +73,37 @@ model Card {
   @@index([code])
 }
 
+/// A user-created grouping for organizing their Inventory (e.g. "Blue bulk",
+/// "Trade binder"). Deleting a folder un-assigns its items rather than
+/// deleting them -- see InventoryItem.folderId's onDelete: SetNull.
+model InventoryFolder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  items InventoryItem[]
+
+  @@unique([userId, name])
+}
+
 model InventoryItem {
-  id         String   @id @default(cuid())
+  id         String           @id @default(cuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   cardId     String
-  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  quantity   Int      @default(0)
-  foilQty    Int      @default(0)
+  card       Card             @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  quantity   Int              @default(0)
+  foilQty    Int              @default(0)
   notes      String?
-  updatedAt  DateTime @updatedAt
+  folderId   String?
+  folder     InventoryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  updatedAt  DateTime         @updatedAt
 
   @@unique([userId, cardId])
   @@index([userId])
+  @@index([folderId])
 }
 
 /// A tournament/legality ruleset. Editable so it can be updated as official

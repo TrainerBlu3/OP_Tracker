@@ -7,6 +7,7 @@ import { CardPicker } from "@/components/CardPicker";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { validateDeck } from "@/lib/rules";
 import { COLOR_STYLES, type DeckDetailDTO, type DeckCardDTO, type CardDTO, type FormatDTO } from "@/lib/types";
+import { formatUSD } from "@/lib/price";
 
 const MAIN_DECK_TYPES = ["CHARACTER", "EVENT", "STAGE"] as const;
 
@@ -140,6 +141,39 @@ export function DeckEditorClient({
     return result.sort((a, b) => a.code.localeCompare(b.code));
   }, [deck, ownedByCode]);
 
+  // Estimated TCGplayer value, using each card's own market (or low as a
+  // fallback) price. Approximate: apitcg.com doesn't have a price for
+  // every printing, and a deck's cards can span several printings of the
+  // same code -- missingPriceCount flags when the total is a lower bound.
+  const costEstimate = useMemo(() => {
+    const priceFor = (card: CardDTO) => card.priceMarket ?? card.priceLow ?? null;
+
+    let total = 0;
+    let missingPriceCount = 0;
+    if (deck.leader) {
+      const p = priceFor(deck.leader);
+      if (p === null) missingPriceCount++;
+      else total += p;
+    }
+    for (const dc of deck.cards) {
+      const p = priceFor(dc.card);
+      if (p === null) missingPriceCount++;
+      else total += p * dc.quantity;
+    }
+
+    let missingCost = 0;
+    let missingCostUnknown = false;
+    for (const s of shortfalls) {
+      const card =
+        deck.leader?.code === s.code ? deck.leader : deck.cards.find((dc) => dc.card.code === s.code)?.card;
+      const p = card ? priceFor(card) : null;
+      if (p === null) missingCostUnknown = true;
+      else missingCost += p * s.missing;
+    }
+
+    return { total, missingPriceCount, missingCost, missingCostUnknown };
+  }, [deck, shortfalls]);
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
@@ -221,6 +255,14 @@ export function DeckEditorClient({
         <h2 className="font-medium">Legality {deck.format ? `(${deck.format.name})` : ""}</h2>
         <p className="mt-1 text-sm text-zinc-500">
           {totalMainDeck}/{deck.format?.deckSize ?? 50} main deck cards
+          {formatUSD(costEstimate.total) && (
+            <>
+              {" "}
+              &middot; Estimated value {formatUSD(costEstimate.total)}
+              {costEstimate.missingPriceCount > 0 &&
+                ` (${costEstimate.missingPriceCount} card${costEstimate.missingPriceCount === 1 ? "" : "s"} missing a price)`}
+            </>
+          )}
         </p>
         {validation.errors.length > 0 && (
           <ul className="mt-2 list-inside list-disc text-sm text-red-600 dark:text-red-400">
@@ -251,18 +293,26 @@ export function DeckEditorClient({
             You own enough copies of everything in this deck.
           </p>
         ) : (
-          <ul className="mt-3 flex flex-col gap-1">
-            {shortfalls.map((s) => (
-              <li key={s.code} className="flex items-center justify-between gap-2 text-sm">
-                <span className="min-w-0 truncate">
-                  {s.name} <span className="text-zinc-500">{s.code}</span>
-                </span>
-                <span className="shrink-0 rounded px-1.5 py-0.5 text-xs text-amber-800 bg-amber-100 dark:bg-amber-950 dark:text-amber-300">
-                  Own {s.owned}/{s.needed} — need {s.missing} more
-                </span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {formatUSD(costEstimate.missingCost) && (
+              <p className="mt-2 text-sm font-medium">
+                Cost to acquire what&apos;s missing: {formatUSD(costEstimate.missingCost)}
+                {costEstimate.missingCostUnknown && " (some prices unavailable, so this is a lower bound)"}
+              </p>
+            )}
+            <ul className="mt-3 flex flex-col gap-1">
+              {shortfalls.map((s) => (
+                <li key={s.code} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate">
+                    {s.name} <span className="text-zinc-500">{s.code}</span>
+                  </span>
+                  <span className="shrink-0 rounded px-1.5 py-0.5 text-xs text-amber-800 bg-amber-100 dark:bg-amber-950 dark:text-amber-300">
+                    Own {s.owned}/{s.needed} — need {s.missing} more
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 

@@ -6,6 +6,7 @@ import { CARD_COLORS, CARD_TYPES, COLOR_STYLES, type CardDTO } from "@/lib/types
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { groupCardVariants } from "@/lib/cardVariants";
 import { ALL_ROLES } from "@/lib/cardRoles";
+import { formatUSD } from "@/lib/price";
 
 interface CardPickerProps {
   /** Renders the action button/control for a given card (e.g. "Add", quantity stepper). */
@@ -233,6 +234,7 @@ export function CardPicker({
                           </span>
                         ))}
                         {card.cost !== null && <span>Cost {card.cost}</span>}
+                        {formatUSD(card.priceMarket) && <span>{formatUSD(card.priceMarket)}</span>}
                       </div>
                       {card.roles.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">

@@ -11,26 +11,53 @@ export function InventoryClient({ initialItems }: { initialItems: InventoryItemD
 
   async function setQuantity(card: CardDTO, quantity: number) {
     if (quantity < 0) return;
-    const res = await fetch("/api/inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cardId: card.id, quantity }),
-    });
-    if (!res.ok) return;
-    const { item } = await res.json();
+    const prevItems = items;
 
+    // Update the screen immediately; sync to the server in the background.
+    // A temp row (fake id, overwritten once the real one comes back) covers
+    // going from "not owned" to owned, since there's no real InventoryItem
+    // id to optimistically reuse yet.
     setItems((prev) => {
       const existingIndex = prev.findIndex((i) => i.cardId === card.id);
       if (quantity === 0) {
         return prev.filter((i) => i.cardId !== card.id);
       }
       if (existingIndex === -1) {
-        return [...prev, item].sort((a, b) => a.card.code.localeCompare(b.card.code));
+        const optimisticItem: InventoryItemDTO = {
+          id: `temp-${card.id}`,
+          userId: "",
+          cardId: card.id,
+          quantity,
+          foilQty: 0,
+          notes: null,
+          updatedAt: new Date(),
+          card,
+        };
+        return [...prev, optimisticItem].sort((a, b) => a.card.code.localeCompare(b.card.code));
       }
       const next = [...prev];
-      next[existingIndex] = item;
+      next[existingIndex] = { ...next[existingIndex], quantity };
       return next;
     });
+
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId: card.id, quantity }),
+      });
+      if (!res.ok) throw new Error("Failed to update inventory");
+      const { item } = await res.json();
+      setItems((prev) => {
+        const existingIndex = prev.findIndex((i) => i.cardId === card.id);
+        if (existingIndex === -1) return prev;
+        const next = [...prev];
+        next[existingIndex] = item;
+        return next;
+      });
+    } catch {
+      setItems(prevItems);
+    }
   }
 
   async function removeItem(item: InventoryItemDTO) {

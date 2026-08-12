@@ -42,7 +42,28 @@ npm run db:seed         # sample cards + Standard/Extra Regulation formats
 npm run dev
 ```
 
-Visit http://localhost:3000, register an account, and go to Inventory or Deck Builder.
+## Accounts and the admin dashboard
+
+There's no public self-registration -- an admin creates every account from
+`/admin` (a "User" nav tab appears there for admins). Since there's no
+account yet on a fresh database, promote the first one directly:
+
+```bash
+npx tsx -e "
+import { PrismaClient } from './generated/prisma/client';
+new PrismaClient().user.update({ where: { email: 'you@example.com' }, data: { role: 'ADMIN' } }).then(() => process.exit());
+"
+```
+
+(that user must already exist -- sign in once won't work since there's no
+register page; create it the same way, with `role: 'ADMIN'` set directly on
+`prisma.user.create`, or ask an existing admin to add you from `/admin`).
+
+From `/admin`, create accounts by email -- each gets a random one-time
+temporary password shown once for you to hand off, and they're forced to
+set their own on first login. Admins can also deactivate accounts, reset a
+forgotten password, or promote/demote roles (the last remaining admin
+can't be demoted or deactivated, so you can't lock yourself out).
 
 ## Deploying to your GCP VM
 

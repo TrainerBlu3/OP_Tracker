@@ -12,6 +12,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "db:whoami": "tsx scripts/db-whoami.ts",
     "sync:cards": "tsx scripts/sync-cards.ts"
   },
   "dependencies": {

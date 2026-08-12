@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { COLOR_STYLES, type CardDTO, type InventoryItemDTO, type InventoryFolderDTO } from "@/lib/types";
@@ -25,9 +25,17 @@ export function InventoryClient({
   const [bulkMoveTarget, setBulkMoveTarget] = useState("");
   const [bulkMoving, setBulkMoving] = useState(false);
 
+  // Tracks the most recently *requested* quantity per card, so that if two
+  // requests for the same card are ever in flight at once, a slower/older
+  // response can't land after a newer one and briefly flash a stale number
+  // back onto the screen -- only the response matching the latest request
+  // is allowed to touch state.
+  const latestQuantityRequest = useRef<Record<string, number>>({});
+
   async function setQuantity(card: CardDTO, quantity: number) {
     if (quantity < 0) return;
     const prevItems = items;
+    latestQuantityRequest.current[card.id] = quantity;
 
     // Update the screen immediately; sync to the server in the background.
     // A temp row (fake id, overwritten once the real one comes back) covers
@@ -65,6 +73,7 @@ export function InventoryClient({
       });
       if (!res.ok) throw new Error("Failed to update inventory");
       const { item } = await res.json();
+      if (latestQuantityRequest.current[card.id] !== quantity) return;
       setItems((prev) => {
         const existingIndex = prev.findIndex((i) => i.cardId === card.id);
         if (existingIndex === -1) return prev;
@@ -73,7 +82,7 @@ export function InventoryClient({
         return next;
       });
     } catch {
-      setItems(prevItems);
+      if (latestQuantityRequest.current[card.id] === quantity) setItems(prevItems);
     }
   }
 

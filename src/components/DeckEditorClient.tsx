@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { validateDeck } from "@/lib/rules";
@@ -42,9 +42,17 @@ export function DeckEditorClient({
     setDeck(updated);
   }
 
+  // The server response replaces the whole deck object, so if an older
+  // in-flight request resolves after a newer one, it can clobber a more
+  // recent optimistic change and briefly flash a stale quantity back onto
+  // the screen. Only the response matching the latest issued request is
+  // allowed to apply.
+  const latestRequestId = useRef(0);
+
   async function setCardQuantity(card: CardDTO, quantity: number) {
     if (quantity < 0 || quantity > (deck.format?.maxCopiesPerCard ?? 4)) return;
     const prevDeck = deck;
+    const requestId = ++latestRequestId.current;
 
     // Update the screen immediately; sync to the server in the background.
     setDeck((prev) => {
@@ -69,9 +77,10 @@ export function DeckEditorClient({
       });
       if (!res.ok) throw new Error("Failed to update deck");
       const { deck: updated } = await res.json();
+      if (requestId !== latestRequestId.current) return;
       setDeck(updated);
     } catch {
-      setDeck(prevDeck);
+      if (requestId === latestRequestId.current) setDeck(prevDeck);
     }
   }
 

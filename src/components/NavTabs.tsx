@@ -8,12 +8,13 @@ const TABS = [
   { href: "/decks", label: "Deck Builder" },
 ];
 
-export function NavTabs() {
+export function NavTabs({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const tabs = isAdmin ? [...TABS, { href: "/admin", label: "Admin" }] : TABS;
 
   return (
     <nav className="flex gap-1">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = pathname.startsWith(tab.href);
         return (
           <Link

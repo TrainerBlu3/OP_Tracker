@@ -1,9 +1,19 @@
 import { z } from "zod";
 
-export const registerSchema = z.object({
+export const adminCreateUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
   name: z.string().min(1).max(80).optional(),
+  role: z.enum(["USER", "ADMIN"]).optional(),
+});
+
+export const adminUserUpdateSchema = z.object({
+  role: z.enum(["USER", "ADMIN"]).optional(),
+  active: z.boolean().optional(),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export const inventoryUpsertSchema = z.object({

@@ -22,6 +22,11 @@ export const inventoryFolderCreateSchema = z.object({
   name: z.string().min(1).max(60),
 });
 
+export const inventoryBulkFolderAssignSchema = z.object({
+  itemIds: z.array(z.string().min(1)).min(1).max(500),
+  folderId: z.string().nullable(),
+});
+
 export const deckCreateSchema = z.object({
   name: z.string().min(1).max(100),
   formatId: z.string().min(1).optional(),

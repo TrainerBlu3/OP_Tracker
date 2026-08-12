@@ -21,6 +21,9 @@ export function InventoryClient({
   const [folderError, setFolderError] = useState<string | null>(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [openFolderKey, setOpenFolderKey] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkMoveTarget, setBulkMoveTarget] = useState("");
+  const [bulkMoving, setBulkMoving] = useState(false);
 
   async function setQuantity(card: CardDTO, quantity: number) {
     if (quantity < 0) return;
@@ -122,6 +125,46 @@ export function InventoryClient({
     setOpenFolderKey((k) => (k === folder.id ? null : k));
   }
 
+  function openFolder(key: string | null) {
+    setOpenFolderKey(key);
+    setSelectedIds(new Set());
+    setBulkMoveTarget("");
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Local-only selection + a single bulk request on "Move", instead of one
+  // PATCH per item -- moving many cards at once used to fire a request per
+  // row, which compounds badly as a collection grows.
+  async function bulkMove(itemIds: string[]) {
+    if (itemIds.length === 0) return;
+    const folderId = bulkMoveTarget || null;
+    const prevItems = items;
+    setBulkMoving(true);
+    setItems((prev) => prev.map((i) => (itemIds.includes(i.id) ? { ...i, folderId } : i)));
+    try {
+      const res = await fetch("/api/inventory/bulk-move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIds, folderId }),
+      });
+      if (!res.ok) throw new Error("Bulk move failed");
+      setSelectedIds(new Set());
+      setBulkMoveTarget("");
+    } catch {
+      setItems(prevItems);
+    } finally {
+      setBulkMoving(false);
+    }
+  }
+
   const quantityByCardId = new Map(items.map((i) => [i.cardId, i.quantity]));
   const totalCards = items.reduce((sum, i) => sum + i.quantity, 0);
 
@@ -210,7 +253,7 @@ export function InventoryClient({
           {groups.map((group) => (
             <li key={group.key}>
               <button
-                onClick={() => setOpenFolderKey(group.key)}
+                onClick={() => openFolder(group.key)}
                 className="flex w-full flex-col gap-2 rounded-lg border border-zinc-200 p-3 text-left transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
               >
                 <div className="flex items-center gap-1 overflow-hidden">
@@ -245,7 +288,7 @@ export function InventoryClient({
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <button
-                  onClick={() => setOpenFolderKey(null)}
+                  onClick={() => openFolder(null)}
                   className="text-sm text-zinc-500 hover:underline"
                 >
                   &larr; All folders
@@ -264,10 +307,51 @@ export function InventoryClient({
                   )}
                 </div>
               </div>
+
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-2 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+                  <span>{selectedIds.size} selected</span>
+                  <select
+                    value={bulkMoveTarget}
+                    onChange={(e) => setBulkMoveTarget(e.target.value)}
+                    className="rounded border border-zinc-300 px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    <option value="">Unfiled</option>
+                    {folders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => bulkMove([...selectedIds])}
+                    disabled={bulkMoving}
+                    className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+                  >
+                    {bulkMoving ? "Moving..." : "Move"}
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-xs text-zinc-500 hover:underline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
               <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
                 <table className="w-full text-sm">
                   <thead className="bg-zinc-100 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
                     <tr>
+                      <th className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={group.items.length > 0 && selectedIds.size === group.items.length}
+                          onChange={(e) =>
+                            setSelectedIds(e.target.checked ? new Set(group.items.map((i) => i.id)) : new Set())
+                          }
+                        />
+                      </th>
                       <th className="px-3 py-2" />
                       <th className="px-3 py-2">Card</th>
                       <th className="px-3 py-2">Set</th>
@@ -281,6 +365,13 @@ export function InventoryClient({
                   <tbody>
                     {group.items.map((item) => (
                       <tr key={item.id} className="border-t border-zinc-200 dark:border-zinc-800">
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(item.id)}
+                            onChange={() => toggleSelected(item.id)}
+                          />
+                        </td>
                         <td className="px-3 py-2">
                           <CardThumbnail imageUrl={item.card.imageUrl} />
                         </td>

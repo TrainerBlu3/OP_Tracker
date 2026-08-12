@@ -52,6 +52,10 @@ model Card {
   setName     String?
   block       Int // legality block, derived from setCode, see lib/blockMap.ts
   imageUrl    String?
+  // Ability/timing keywords (e.g. "On Play", "Blocker", "Trigger", "Counter"),
+  // parsed from the bracketed tags in `ability`/`triggerText` -- see
+  // lib/cardRoles.ts. Not from the API; purely derived from data we already have.
+  roles       String[] @default([])
   updatedAt   DateTime @updatedAt
 
   inventoryItems InventoryItem[]

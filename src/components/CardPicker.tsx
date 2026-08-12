@@ -5,6 +5,7 @@ import { isCardFormatLegal, type FormatRules } from "@/lib/rules";
 import { CARD_COLORS, CARD_TYPES, COLOR_STYLES, type CardDTO } from "@/lib/types";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { groupCardVariants } from "@/lib/cardVariants";
+import { ALL_ROLES } from "@/lib/cardRoles";
 
 interface CardPickerProps {
   /** Renders the action button/control for a given card (e.g. "Add", quantity stepper). */
@@ -34,6 +35,7 @@ export function CardPicker({
   const [q, setQ] = useState("");
   const [color, setColor] = useState("");
   const [cardType, setCardType] = useState(lockedCardType ?? "");
+  const [role, setRole] = useState("");
   const [hideIllegal, setHideIllegal] = useState(true);
   const [cards, setCards] = useState<CardDTO[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,9 +47,10 @@ export function CardPicker({
     if (q) p.set("q", q);
     if (color) p.set("color", color);
     if (cardType) p.set("cardType", cardType);
+    if (role) p.set("role", role);
     p.set("limit", "60");
     return p.toString();
-  }, [q, color, cardType]);
+  }, [q, color, cardType, role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +118,18 @@ export function CardPicker({
             ))}
           </select>
         )}
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <option value="">Any role</option>
+          {ALL_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
         {format && (
           <label className="flex items-center gap-1.5 text-xs text-zinc-500">
             <input type="checkbox" checked={hideIllegal} onChange={(e) => setHideIllegal(e.target.checked)} />
@@ -166,6 +181,18 @@ export function CardPicker({
                         ))}
                         {card.cost !== null && <span>Cost {card.cost}</span>}
                       </div>
+                      {card.roles.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {card.roles.map((r) => (
+                            <span
+                              key={r}
+                              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                            >
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {group.variants.length > 1 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {group.variants.map((v, i) => (

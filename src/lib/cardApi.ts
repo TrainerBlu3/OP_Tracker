@@ -11,6 +11,8 @@
  * mapping below.
  */
 
+import { extractRoles } from "@/lib/cardRoles";
+
 const API_BASE_URL = "https://api.apitcg.com/api";
 
 export interface RawApiTcgCardAttributes {
@@ -126,12 +128,15 @@ export function normalizeCard(raw: RawApiTcgCard) {
   // inconsistently formatted ("EB-01" vs "ST-22") when present.
   const setCode = code.split("-")[0];
   const image = raw.images?.[0];
+  const cardType = normalizeCardType(attrs.CardType);
+  const ability = attrs.Description ?? null;
+  const triggerText = attrs.Trigger ?? null;
 
   return {
     apitcgId: String(raw._id),
     code,
     name: raw.name ?? code,
-    cardType: normalizeCardType(attrs.CardType),
+    cardType,
     colors: toStringArray(attrs.Color),
     cost: toInt(attrs.Cost),
     power: toInt(attrs.Power),
@@ -139,11 +144,12 @@ export function normalizeCard(raw: RawApiTcgCard) {
     life: toInt(attrs.Life),
     attribute: attrs.Attribute ?? null,
     family: attrs.Subtypes ?? null,
-    ability: attrs.Description ?? null,
-    triggerText: attrs.Trigger ?? null,
+    ability,
+    triggerText,
     rarity: attrs.Rarity ?? null,
     setCode,
     setName: raw.set?.name ?? null,
     imageUrl: image?.large ?? image?.medium ?? image?.small ?? null,
+    roles: extractRoles({ ability, triggerText, cardType }),
   };
 }

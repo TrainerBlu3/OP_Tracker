@@ -23,11 +23,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
         if (!user) return null;
+        // Disabled accounts fail the same as a wrong password -- an admin
+        // deactivating someone shouldn't leak "this account exists but is
+        // disabled" to whoever's trying it.
+        if (!user.active) return null;
 
         const valid = await verifyPassword(password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, email: user.email, name: user.name ?? undefined };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name ?? undefined,
+          role: user.role,
+          mustChangePassword: user.mustChangePassword,
+        };
       },
     }),
   ],
@@ -35,12 +45,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.role = user.role as "USER" | "ADMIN";
+        token.mustChangePassword = user.mustChangePassword as boolean;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.role = token.role as "USER" | "ADMIN";
+        session.user.mustChangePassword = token.mustChangePassword as boolean;
       }
       return session;
     },

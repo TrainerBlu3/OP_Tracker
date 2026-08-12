@@ -4,6 +4,18 @@
 #   cp deploy/op-tracker.service ~/.config/systemd/user/
 #   systemctl --user daemon-reload
 #   systemctl --user enable --now op-tracker
+#
+# Port 3001, not 3000 -- if this VM also runs another app (e.g. QuickDash,
+# which defaults to 3000) alongside this one, they'd otherwise collide.
+# Change it back to 3000 (and update deploy/Caddyfile's proxy target to
+# match) if this is the only app on the VM.
+#
+# CPUWeight/OOMScoreAdjust below prioritize this app over a lower-traffic
+# sibling app on the same VM (e.g. QuickDash) -- under CPU contention this
+# gets a bigger share, and if RAM runs out the kernel prefers killing the
+# *other* app first. Give that other app's service file the inverse
+# (CPUWeight=50, OOMScoreAdjust=100) so the two are relative to each
+# other, not just this one alone against the default.
 
 [Unit]
 Description=OP Tracker web app
@@ -13,9 +25,11 @@ After=network.target
 Type=simple
 WorkingDirectory=%h/op-tracker
 EnvironmentFile=%h/op-tracker/.env
-ExecStart=/usr/bin/env npm run start -- --port 3000
+ExecStart=/usr/bin/env npm run start -- --port 3001
 Restart=on-failure
 RestartSec=5
+CPUWeight=200
+OOMScoreAdjust=-100
 
 [Install]
 WantedBy=default.target

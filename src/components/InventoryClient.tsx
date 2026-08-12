@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { COLOR_STYLES, type CardDTO, type InventoryItemDTO, type InventoryFolderDTO } from "@/lib/types";
@@ -20,10 +20,22 @@ export function InventoryClient({
   const [newFolderName, setNewFolderName] = useState("");
   const [folderError, setFolderError] = useState<string | null>(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [openFolderKey, setOpenFolderKey] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkMoveTarget, setBulkMoveTarget] = useState("");
+  const [bulkMoving, setBulkMoving] = useState(false);
+
+  // Tracks the most recently *requested* quantity per card, so that if two
+  // requests for the same card are ever in flight at once, a slower/older
+  // response can't land after a newer one and briefly flash a stale number
+  // back onto the screen -- only the response matching the latest request
+  // is allowed to touch state.
+  const latestQuantityRequest = useRef<Record<string, number>>({});
 
   async function setQuantity(card: CardDTO, quantity: number) {
     if (quantity < 0) return;
     const prevItems = items;
+    latestQuantityRequest.current[card.id] = quantity;
 
     // Update the screen immediately; sync to the server in the background.
     // A temp row (fake id, overwritten once the real one comes back) covers
@@ -61,6 +73,7 @@ export function InventoryClient({
       });
       if (!res.ok) throw new Error("Failed to update inventory");
       const { item } = await res.json();
+      if (latestQuantityRequest.current[card.id] !== quantity) return;
       setItems((prev) => {
         const existingIndex = prev.findIndex((i) => i.cardId === card.id);
         if (existingIndex === -1) return prev;
@@ -69,7 +82,7 @@ export function InventoryClient({
         return next;
       });
     } catch {
-      setItems(prevItems);
+      if (latestQuantityRequest.current[card.id] === quantity) setItems(prevItems);
     }
   }
 
@@ -118,6 +131,47 @@ export function InventoryClient({
     if (!res.ok) return;
     setFolders((prev) => prev.filter((f) => f.id !== folder.id));
     setItems((prev) => prev.map((i) => (i.folderId === folder.id ? { ...i, folderId: null } : i)));
+    setOpenFolderKey((k) => (k === folder.id ? null : k));
+  }
+
+  function openFolder(key: string | null) {
+    setOpenFolderKey(key);
+    setSelectedIds(new Set());
+    setBulkMoveTarget("");
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Local-only selection + a single bulk request on "Move", instead of one
+  // PATCH per item -- moving many cards at once used to fire a request per
+  // row, which compounds badly as a collection grows.
+  async function bulkMove(itemIds: string[]) {
+    if (itemIds.length === 0) return;
+    const folderId = bulkMoveTarget || null;
+    const prevItems = items;
+    setBulkMoving(true);
+    setItems((prev) => prev.map((i) => (itemIds.includes(i.id) ? { ...i, folderId } : i)));
+    try {
+      const res = await fetch("/api/inventory/bulk-move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIds, folderId }),
+      });
+      if (!res.ok) throw new Error("Bulk move failed");
+      setSelectedIds(new Set());
+      setBulkMoveTarget("");
+    } catch {
+      setItems(prevItems);
+    } finally {
+      setBulkMoving(false);
+    }
   }
 
   const quantityByCardId = new Map(items.map((i) => [i.cardId, i.quantity]));
@@ -129,10 +183,11 @@ export function InventoryClient({
       const key = item.folderId ?? UNFILED;
       byFolder.set(key, [...(byFolder.get(key) ?? []), item]);
     }
+    // Every folder gets a tile, even freshly-created empty ones -- only the
+    // "Unfiled" bucket is conditional, since there's no such thing as an
+    // empty one worth showing.
     const ordered: { key: string; name: string; folder: InventoryFolderDTO | null; items: InventoryItemDTO[] }[] =
-      folders
-        .filter((f) => byFolder.has(f.id))
-        .map((f) => ({ key: f.id, name: f.name, folder: f, items: byFolder.get(f.id)! }));
+      folders.map((f) => ({ key: f.id, name: f.name, folder: f, items: byFolder.get(f.id) ?? [] }));
     if (byFolder.has(UNFILED)) {
       ordered.push({ key: UNFILED, name: "Unfiled", folder: null, items: byFolder.get(UNFILED)! });
     }
@@ -198,31 +253,114 @@ export function InventoryClient({
         </div>
       )}
 
-      {items.length === 0 ? (
+      {items.length === 0 && folders.length === 0 ? (
         <p className="text-sm text-zinc-500">
           Your collection is empty. Click <strong>Add cards</strong> to get started.
         </p>
-      ) : (
-        <div className="flex flex-col gap-6">
+      ) : openFolderKey === null ? (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {groups.map((group) => (
-            <div key={group.key} className="flex flex-col gap-2">
+            <li key={group.key}>
+              <button
+                onClick={() => openFolder(group.key)}
+                className="flex w-full flex-col gap-2 rounded-lg border border-zinc-200 p-3 text-left transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
+              >
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {group.items.slice(0, 4).map((item, i) => (
+                    <div
+                      key={item.id}
+                      className="shrink-0 rounded shadow-sm ring-1 ring-black/5"
+                      style={{ marginLeft: i === 0 ? 0 : -18 }}
+                    >
+                      <CardThumbnail imageUrl={item.card.imageUrl} className="h-16 w-11 rounded object-cover" />
+                    </div>
+                  ))}
+                  {group.items.length === 0 && (
+                    <div className="flex h-16 w-full items-center justify-center text-xs text-zinc-400">Empty</div>
+                  )}
+                </div>
+                <div>
+                  <p className="truncate text-sm font-medium">{group.name}</p>
+                  <p className="text-xs text-zinc-500">
+                    {group.items.length} card{group.items.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        (() => {
+          const group = groups.find((g) => g.key === openFolderKey);
+          if (!group) return null;
+          return (
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-zinc-500">
-                  {group.name} <span className="font-normal">({group.items.length})</span>
-                </h2>
-                {group.folder && (
-                  <button
-                    onClick={() => deleteFolder(group.folder!)}
-                    className="text-xs text-red-600 hover:underline dark:text-red-400"
-                  >
-                    Delete folder
-                  </button>
-                )}
+                <button
+                  onClick={() => openFolder(null)}
+                  className="text-sm text-zinc-500 hover:underline"
+                >
+                  &larr; All folders
+                </button>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-sm font-semibold text-zinc-500">
+                    {group.name} <span className="font-normal">({group.items.length})</span>
+                  </h2>
+                  {group.folder && (
+                    <button
+                      onClick={() => deleteFolder(group.folder!)}
+                      className="text-xs text-red-600 hover:underline dark:text-red-400"
+                    >
+                      Delete folder
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-2 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+                  <span>{selectedIds.size} selected</span>
+                  <select
+                    value={bulkMoveTarget}
+                    onChange={(e) => setBulkMoveTarget(e.target.value)}
+                    className="rounded border border-zinc-300 px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    <option value="">Unfiled</option>
+                    {folders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => bulkMove([...selectedIds])}
+                    disabled={bulkMoving}
+                    className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+                  >
+                    {bulkMoving ? "Moving..." : "Move"}
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-xs text-zinc-500 hover:underline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
               <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
                 <table className="w-full text-sm">
                   <thead className="bg-zinc-100 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
                     <tr>
+                      <th className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={group.items.length > 0 && selectedIds.size === group.items.length}
+                          onChange={(e) =>
+                            setSelectedIds(e.target.checked ? new Set(group.items.map((i) => i.id)) : new Set())
+                          }
+                        />
+                      </th>
                       <th className="px-3 py-2" />
                       <th className="px-3 py-2">Card</th>
                       <th className="px-3 py-2">Set</th>
@@ -236,6 +374,13 @@ export function InventoryClient({
                   <tbody>
                     {group.items.map((item) => (
                       <tr key={item.id} className="border-t border-zinc-200 dark:border-zinc-800">
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(item.id)}
+                            onChange={() => toggleSelected(item.id)}
+                          />
+                        </td>
                         <td className="px-3 py-2">
                           <CardThumbnail imageUrl={item.card.imageUrl} />
                         </td>
@@ -291,8 +436,8 @@ export function InventoryClient({
                 </table>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })()
       )}
     </div>
   );

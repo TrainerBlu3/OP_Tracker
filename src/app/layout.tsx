@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
               <div className="flex items-center gap-6">
                 <span className="text-sm font-semibold tracking-tight">OP Tracker</span>
-                <NavTabs />
+                <NavTabs isAdmin={session.user.role === "ADMIN"} />
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-zinc-500">{session.user.email}</span>

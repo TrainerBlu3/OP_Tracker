@@ -1,7 +1,6 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 
@@ -64,12 +63,7 @@ function LoginForm() {
           {loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
-      <p className="text-sm text-zinc-500">
-        No account?{" "}
-        <Link href="/register" className="font-medium underline">
-          Register
-        </Link>
-      </p>
+      <p className="text-sm text-zinc-500">No account? Ask an admin to create one for you.</p>
     </div>
   );
 }

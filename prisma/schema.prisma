@@ -18,12 +18,22 @@ enum CardType {
   DON
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  passwordHash String
-  createdAt    DateTime @default(now())
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String?
+  passwordHash       String
+  role               Role     @default(USER)
+  active             Boolean  @default(true)
+  // Set on accounts an admin creates (temp password); forces a password
+  // change on next login before the rest of the app is reachable.
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
 
   inventory        InventoryItem[]
   inventoryFolders InventoryFolder[]

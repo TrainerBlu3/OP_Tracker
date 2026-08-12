@@ -1,7 +1,18 @@
-import type { Card, InventoryItem, InventoryFolder, Format, Deck, DeckCard } from "@/generated/prisma/client";
+import type { Card, InventoryItem, InventoryFolder, Format, Deck, DeckCard, Role } from "@/generated/prisma/client";
 
 export type CardDTO = Card;
 export type InventoryFolderDTO = InventoryFolder;
+
+/** A User row with passwordHash stripped -- what admin endpoints return. */
+export interface AdminUserDTO {
+  id: string;
+  email: string;
+  name: string | null;
+  role: Role;
+  active: boolean;
+  mustChangePassword: boolean;
+  createdAt: Date;
+}
 export type InventoryItemDTO = InventoryItem & { card: CardDTO };
 export type FormatDTO = Format;
 export type DeckListItemDTO = Deck & { leader: CardDTO | null; format: FormatDTO | null; cards: DeckCard[] };

@@ -34,6 +34,8 @@ export function CardPicker({
 }: CardPickerProps) {
   const [q, setQ] = useState("");
   const [color, setColor] = useState("");
+  const [color2, setColor2] = useState("");
+  const [showColor2, setShowColor2] = useState(false);
   const [cardType, setCardType] = useState(lockedCardType ?? "");
   const [role, setRole] = useState("");
   const [hideIllegal, setHideIllegal] = useState(true);
@@ -46,11 +48,12 @@ export function CardPicker({
     const p = new URLSearchParams();
     if (q) p.set("q", q);
     if (color) p.set("color", color);
+    if (color2) p.set("color2", color2);
     if (cardType) p.set("cardType", cardType);
     if (role) p.set("role", role);
     p.set("limit", "60");
     return p.toString();
-  }, [q, color, cardType, role]);
+  }, [q, color, color2, cardType, role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,7 +97,13 @@ export function CardPicker({
         />
         <select
           value={color}
-          onChange={(e) => setColor(e.target.value)}
+          onChange={(e) => {
+            setColor(e.target.value);
+            if (!e.target.value) {
+              setColor2("");
+              setShowColor2(false);
+            }
+          }}
           className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
           <option value="">Any color</option>
@@ -104,6 +113,42 @@ export function CardPicker({
             </option>
           ))}
         </select>
+        {color && !showColor2 && (
+          <button
+            type="button"
+            onClick={() => setShowColor2(true)}
+            className="text-sm text-zinc-500 hover:underline"
+          >
+            + second color
+          </button>
+        )}
+        {color && showColor2 && (
+          <div className="flex items-center gap-1">
+            <select
+              value={color2}
+              onChange={(e) => setColor2(e.target.value)}
+              className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              <option value="">Any second color</option>
+              {CARD_COLORS.filter((c) => c !== color).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                setColor2("");
+                setShowColor2(false);
+              }}
+              className="text-sm text-zinc-500 hover:underline"
+              aria-label="Remove second color filter"
+            >
+              &times;
+            </button>
+          </div>
+        )}
         {!lockedCardType && (
           <select
             value={cardType}

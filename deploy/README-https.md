@@ -121,3 +121,34 @@ real, trusted padlock (no warning), proxied through to OP Tracker on port
 - Watch memory during a deploy the first few times (`free -h` while
   `npm run build` runs) to confirm the swap is actually enough headroom
   for both apps plus a build in flight.
+
+## Giving OP Tracker priority over QuickDash
+
+If OP Tracker sees meaningfully more traffic than QuickDash, it's worth
+telling systemd that explicitly rather than leaving both apps at equal
+default priority. `deploy/op-tracker.service` already sets `CPUWeight=200`
+(double the default share of CPU time under contention) and
+`OOMScoreAdjust=-100` (less likely to be the one killed if the VM runs
+out of memory). For that to actually mean something *relative to*
+QuickDash, add the inverse to QuickDash's own systemd unit on the VM
+(it's not part of this repo, so this has to be done by hand there):
+
+```ini
+[Service]
+CPUWeight=50
+OOMScoreAdjust=100
+```
+
+Add those two lines under QuickDash's `[Service]` section (e.g.
+`~/.config/systemd/user/quickdash.service` or wherever its unit file
+lives), then:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user restart quickdash
+```
+
+Neither setting matters at all when the VM isn't under actual CPU or
+memory pressure -- both apps run normally otherwise. This only kicks in
+when resources are genuinely contended, which is exactly when you'd want
+the more-used app to win.

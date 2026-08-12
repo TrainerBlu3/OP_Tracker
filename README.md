@@ -102,7 +102,7 @@ sudo loginctl enable-linger "$USER"
 
 From then on, pushing to `main` gets picked up within 5 minutes: `deploy/deploy.sh` fetches, and if there are new commits, hard-resets the checkout to match `origin/main`, reinstalls dependencies, runs migrations, rebuilds, and restarts the `op-tracker` service. Logs: `journalctl --user -u op-tracker-deploy -f` and `journalctl --user -u op-tracker -f`.
 
-Put a reverse proxy (nginx/Caddy) in front of port 3000 for TLS if you're exposing this beyond your own network -- that's not included here.
+Put a reverse proxy in front of port 3000 for TLS if you're exposing this beyond your own network -- with real login credentials on this app, don't run it over plain HTTP publicly. If you don't own a domain, see [deploy/README-https.md](deploy/README-https.md) for a free walkthrough using Caddy + sslip.io (a real, trusted cert with no domain purchase needed).
 
 Change the polling interval by editing `OnUnitActiveSec` in `deploy/op-tracker-deploy.timer`, and the deploy branch via `OP_TRACKER_BRANCH` in `deploy/op-tracker-deploy.service`.
 

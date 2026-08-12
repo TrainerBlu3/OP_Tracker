@@ -20,6 +20,7 @@ export function InventoryClient({
   const [newFolderName, setNewFolderName] = useState("");
   const [folderError, setFolderError] = useState<string | null>(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [openFolderKey, setOpenFolderKey] = useState<string | null>(null);
 
   async function setQuantity(card: CardDTO, quantity: number) {
     if (quantity < 0) return;
@@ -118,6 +119,7 @@ export function InventoryClient({
     if (!res.ok) return;
     setFolders((prev) => prev.filter((f) => f.id !== folder.id));
     setItems((prev) => prev.map((i) => (i.folderId === folder.id ? { ...i, folderId: null } : i)));
+    setOpenFolderKey((k) => (k === folder.id ? null : k));
   }
 
   const quantityByCardId = new Map(items.map((i) => [i.cardId, i.quantity]));
@@ -129,10 +131,11 @@ export function InventoryClient({
       const key = item.folderId ?? UNFILED;
       byFolder.set(key, [...(byFolder.get(key) ?? []), item]);
     }
+    // Every folder gets a tile, even freshly-created empty ones -- only the
+    // "Unfiled" bucket is conditional, since there's no such thing as an
+    // empty one worth showing.
     const ordered: { key: string; name: string; folder: InventoryFolderDTO | null; items: InventoryItemDTO[] }[] =
-      folders
-        .filter((f) => byFolder.has(f.id))
-        .map((f) => ({ key: f.id, name: f.name, folder: f, items: byFolder.get(f.id)! }));
+      folders.map((f) => ({ key: f.id, name: f.name, folder: f, items: byFolder.get(f.id) ?? [] }));
     if (byFolder.has(UNFILED)) {
       ordered.push({ key: UNFILED, name: "Unfiled", folder: null, items: byFolder.get(UNFILED)! });
     }
@@ -198,26 +201,68 @@ export function InventoryClient({
         </div>
       )}
 
-      {items.length === 0 ? (
+      {items.length === 0 && folders.length === 0 ? (
         <p className="text-sm text-zinc-500">
           Your collection is empty. Click <strong>Add cards</strong> to get started.
         </p>
-      ) : (
-        <div className="flex flex-col gap-6">
+      ) : openFolderKey === null ? (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {groups.map((group) => (
-            <div key={group.key} className="flex flex-col gap-2">
+            <li key={group.key}>
+              <button
+                onClick={() => setOpenFolderKey(group.key)}
+                className="flex w-full flex-col gap-2 rounded-lg border border-zinc-200 p-3 text-left transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
+              >
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {group.items.slice(0, 4).map((item, i) => (
+                    <div
+                      key={item.id}
+                      className="shrink-0 rounded shadow-sm ring-1 ring-black/5"
+                      style={{ marginLeft: i === 0 ? 0 : -18 }}
+                    >
+                      <CardThumbnail imageUrl={item.card.imageUrl} className="h-16 w-11 rounded object-cover" />
+                    </div>
+                  ))}
+                  {group.items.length === 0 && (
+                    <div className="flex h-16 w-full items-center justify-center text-xs text-zinc-400">Empty</div>
+                  )}
+                </div>
+                <div>
+                  <p className="truncate text-sm font-medium">{group.name}</p>
+                  <p className="text-xs text-zinc-500">
+                    {group.items.length} card{group.items.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        (() => {
+          const group = groups.find((g) => g.key === openFolderKey);
+          if (!group) return null;
+          return (
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-zinc-500">
-                  {group.name} <span className="font-normal">({group.items.length})</span>
-                </h2>
-                {group.folder && (
-                  <button
-                    onClick={() => deleteFolder(group.folder!)}
-                    className="text-xs text-red-600 hover:underline dark:text-red-400"
-                  >
-                    Delete folder
-                  </button>
-                )}
+                <button
+                  onClick={() => setOpenFolderKey(null)}
+                  className="text-sm text-zinc-500 hover:underline"
+                >
+                  &larr; All folders
+                </button>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-sm font-semibold text-zinc-500">
+                    {group.name} <span className="font-normal">({group.items.length})</span>
+                  </h2>
+                  {group.folder && (
+                    <button
+                      onClick={() => deleteFolder(group.folder!)}
+                      className="text-xs text-red-600 hover:underline dark:text-red-400"
+                    >
+                      Delete folder
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
                 <table className="w-full text-sm">
@@ -291,8 +336,8 @@ export function InventoryClient({
                 </table>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })()
       )}
     </div>
   );

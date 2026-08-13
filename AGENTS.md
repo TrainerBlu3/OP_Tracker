@@ -39,7 +39,8 @@ Multiple AI coding sessions/tools (a web session, an IDE session, etc.) may be w
 
 ### Pull requests
 
-- Open a PR from your branch into `main`. Never push directly to `main`, even for small fixes.
+- Open a PR from your branch into `main` -- set the base explicitly, never rely on whatever GitHub reports as the repository's default branch. The default branch drifted to a stale session branch once already, which silently flipped the merge direction on a couple of PRs; `main` is the merge target regardless of what's configured as default.
+- Never push directly to `main`, even for small fixes.
 - Title: short, imperative summary of the change (e.g. "Add deck export to JSON").
 - Description: what changed and why, plus anything needing manual follow-up (new env vars, migrations to run, external accounts/keys to set up).
 - Don't merge with a red build/lint. Don't force-push over a branch that already has review comments without flagging it.

@@ -4,6 +4,8 @@ A comprehensive, hand-off-ready work plan for this project. Written for AI codin
 
 Audited 2026-08-13 against `main` (post PR #13/#14). Update checkboxes and prune completed items as you go — this file is the shared backlog.
 
+**Updated 2026-08-13:** C1–C3 shipped (PRs #16–#18, merged to `dev`, pending promotion to `main`). Workstream D moved up in the suggested order (see §8) — a manual `dev`→`main` promotion made the VM-side build's fragility concrete enough to act on now rather than waiting for a 500.
+
 ---
 
 ## 1. Project snapshot
@@ -73,9 +75,9 @@ The app is functional but spartan. Reference bars: [deckbuilder.egmanevents.com]
 
 ### P0 — sharpen the daily loop (all small, client-heavy)
 
-- [ ] **C1. Deck stats panel** — `S`. Cost curve (bar per cost 0–10+), type split, counter/trigger counts, color distribution. Pure client math over `deck.cards` already in memory. Put it in the collapsed-by-default area near legality. *The most-missed feature vs. both reference sites.*
-- [ ] **C2. Full search filters + sort** — `S`. Extend `/api/cards` + `CardPicker` with cost, power, counter, set, rarity filters and sort (cost / power / name / price). Columns already exist in `Card`; add DB indexes for whatever you make sortable/filterable.
-- [ ] **C3. Deck export + duplicate** — `S`. Copy-to-clipboard decklist in the same `4xOP01-016` format the paste-import reads (round-trip guarantee: export → import must reproduce the deck). Plus a "Duplicate deck" button (server: copy deck + deckCards in one transaction).
+- [x] **C1. Deck stats panel** — `S`. Cost curve (bar per cost 0–10+), type split, counter/trigger counts, color distribution. Pure client math over `deck.cards` already in memory. Put it in the collapsed-by-default area near legality. *The most-missed feature vs. both reference sites.* **Done (PR #16).**
+- [x] **C2. Full search filters + sort** — `S`. Extend `/api/cards` + `CardPicker` with cost, power, counter, set, rarity filters and sort (cost / power / name / price). Columns already exist in `Card`; add DB indexes for whatever you make sortable/filterable. **Done (PR #17)** — cost/power range, rarity, and sort (cost/power/name/price) all shipped with new indexes. *Gap:* the API supports `counterMin` and `setCode` filters, but `CardPicker` never exposes UI controls for them — pick those up as a small follow-up if the gap is felt.
+- [x] **C3. Deck export + duplicate** — `S`. Copy-to-clipboard decklist in the same `4xOP01-016` format the paste-import reads (round-trip guarantee: export → import must reproduce the deck). Plus a "Duplicate deck" button (server: copy deck + deckCards in one transaction). **Done (PR #18).**
 - [ ] **C4. Inventory search + value** — `S`. Filter box over the collection (client-side over loaded items is fine pre-A3), per-folder card counts, collection value total from stored prices (flag "N cards unpriced" like the deck editor does).
 
 ### P1 — share it and play with it
@@ -96,7 +98,7 @@ Meta decks / tier lists / community content (content-ops treadmill), multi-TCG s
 
 ## 6. Workstream D — Operations & infra smoothing
 
-Listed after features but **D1 jumps the queue the next time the site 500s** — VM-side builds are the prime suspect for the outage already seen.
+**D1 and D2 are next up (see §8)** — VM-side builds are the prime suspect for the outage already seen, and every `dev`→`main` promotion is currently an unattended, unverified build on a 1 GB box with no rollback.
 
 - [ ] **D1. Build off-VM** — `M`, biggest stability win. GitHub Action on push to `main`: `npm ci && npm run build`, tar `.next/` + `generated/` + `public/` + `package.json` + `node_modules` (or run `npm ci --omit=dev` in the artifact), publish as a release/artifact. Rewrite `deploy/deploy.sh` to download + swap + restart instead of compiling. Interim cheap fix if needed sooner: add a 2 GB swap file and `NODE_OPTIONS=--max-old-space-size=768` to the build.
 - [ ] **D2. Health check + rollback** — `S`. Add `/api/health` (checks a trivial DB query). `deploy.sh`: after restart, curl it with retries; on failure, `git reset --hard` to the previous rev, rebuild/restart, and log loudly. A bad deploy currently serves errors until someone notices.
@@ -119,11 +121,12 @@ Listed after features but **D1 jumps the queue the next time the site 500s** —
 
 | Order | Items | Why this order |
 |---|---|---|
-| 1 | C1, C2, C3 | Highest daily-use value, no schema risk, independent of each other — can run as parallel branches |
-| 2 | B2, B3, A2 | Makes everything else feel finished; toasts unblock E4 |
-| 3 | E1, E2 | Lock in correctness before the feature surface grows |
-| 4 | C4, C5, C6 | Rounds out P1; C5 is the first schema migration in the plan |
-| 5 | D1, D2, D3 | Do earlier if any 500/outage recurs |
-| 6 | A3, A4, C7–C10, B1, B4–B7, E3–E5 | As capacity allows |
+| 1 | ~~C1, C2, C3~~ | **Done** — highest daily-use value, no schema risk, independent of each other |
+| 2 | D1, D2 | Moved up from position 5: promoting to `main` now means the VM compiles the build live and unattended, with no rollback if it fails. Do this before the feature surface (and build weight) grows further. |
+| 3 | B2, B3, A2 | Makes everything else feel finished; toasts unblock E4 |
+| 4 | E1, E2 | Lock in correctness before the feature surface grows |
+| 5 | C4, C5, C6 | Rounds out P1; C5 is the first schema migration in the plan |
+| 6 | D3 | Once D2's health endpoint exists, point external monitoring at it |
+| 7 | A3, A4, C7–C10, B1, B4–B7, E3–E5 | As capacity allows |
 
 **Definition of done for every item:** `npm run lint` and `npm run build` pass · UI changes verified with a screenshot against local Postgres · migration included if schema changed · PR into `dev` with base set explicitly · this file's checkbox ticked in the same PR.

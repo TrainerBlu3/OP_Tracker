@@ -27,6 +27,8 @@ export function DeckEditorClient({
   const [showLeaderPicker, setShowLeaderPicker] = useState(false);
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [showImportBox, setShowImportBox] = useState(false);
+  const [showLegality, setShowLegality] = useState(false);
+  const [showInventoryPanel, setShowInventoryPanel] = useState(false);
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -266,110 +268,6 @@ export function DeckEditorClient({
       </section>
 
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="font-medium">Legality {deck.format ? `(${deck.format.name})` : ""}</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          {totalMainDeck}/{deck.format?.deckSize ?? 50} main deck cards
-          {formatUSD(costEstimate.total) && (
-            <>
-              {" "}
-              &middot; Estimated value {formatUSD(costEstimate.total)}
-              {costEstimate.missingPriceCount > 0 &&
-                ` (${costEstimate.missingPriceCount} card${costEstimate.missingPriceCount === 1 ? "" : "s"} missing a price)`}
-            </>
-          )}
-        </p>
-        {validation.errors.length > 0 && (
-          <ul className="mt-2 list-inside list-disc text-sm text-red-600 dark:text-red-400">
-            {validation.errors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
-        )}
-        {validation.warnings.length > 0 && (
-          <ul className="mt-2 list-inside list-disc text-sm text-amber-600 dark:text-amber-400">
-            {validation.warnings.map((warn, i) => (
-              <li key={i}>{warn}</li>
-            ))}
-          </ul>
-        )}
-        {validation.isLegal && validation.warnings.length === 0 && (
-          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">Deck is legal.</p>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="font-medium">Legality across all formats</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Regardless of which format this deck is assigned to above, here&apos;s where it currently stands.
-        </p>
-        {formats.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-500">No formats configured yet.</p>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-2">
-            {allFormatResults.map(({ format, result }) => (
-              <li
-                key={format.id}
-                className="rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{format.name}</span>
-                  <span
-                    className={
-                      result.isLegal
-                        ? "rounded px-1.5 py-0.5 text-xs text-emerald-800 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
-                        : "rounded px-1.5 py-0.5 text-xs text-red-800 bg-red-100 dark:bg-red-950 dark:text-red-300"
-                    }
-                  >
-                    {result.isLegal ? "Legal" : `${result.errors.length} issue${result.errors.length === 1 ? "" : "s"}`}
-                  </span>
-                </div>
-                {!result.isLegal && (
-                  <ul className="mt-1.5 list-inside list-disc text-xs text-red-600 dark:text-red-400">
-                    {result.errors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="font-medium">Inventory check</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          What you still need to acquire, compared against your Inventory (any art variant of a card counts).
-        </p>
-        {shortfalls.length === 0 ? (
-          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-            You own enough copies of everything in this deck.
-          </p>
-        ) : (
-          <>
-            {formatUSD(costEstimate.missingCost) && (
-              <p className="mt-2 text-sm font-medium">
-                Cost to acquire what&apos;s missing: {formatUSD(costEstimate.missingCost)}
-                {costEstimate.missingCostUnknown && " (some prices unavailable, so this is a lower bound)"}
-              </p>
-            )}
-            <ul className="mt-3 flex flex-col gap-1">
-              {shortfalls.map((s) => (
-                <li key={s.code} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 truncate">
-                    {s.name} <span className="text-zinc-500">{s.code}</span>
-                  </span>
-                  <span className="shrink-0 rounded px-1.5 py-0.5 text-xs text-amber-800 bg-amber-100 dark:bg-amber-950 dark:text-amber-300">
-                    Own {s.owned}/{s.needed} — need {s.missing} more
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Main deck</h2>
           <div className="flex items-center gap-3">
@@ -474,6 +372,152 @@ export function DeckEditorClient({
           </div>
         )}
       </section>
+
+      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <button
+          onClick={() => setShowLegality((s) => !s)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <h2 className="font-medium">Legality {deck.format ? `(${deck.format.name})` : ""}</h2>
+          <span className="text-sm text-zinc-500 hover:underline">{showLegality ? "Hide" : "Show"}</span>
+        </button>
+        <p className="mt-1 text-sm text-zinc-500">
+          {totalMainDeck}/{deck.format?.deckSize ?? 50} main deck cards
+          {formatUSD(costEstimate.total) && (
+            <>
+              {" "}
+              &middot; Estimated value {formatUSD(costEstimate.total)}
+              {costEstimate.missingPriceCount > 0 &&
+                ` (${costEstimate.missingPriceCount} card${costEstimate.missingPriceCount === 1 ? "" : "s"} missing a price)`}
+            </>
+          )}
+        </p>
+        {showLegality && (
+          <>
+            {validation.errors.length > 0 && (
+              <ul className="mt-2 list-inside list-disc text-sm text-red-600 dark:text-red-400">
+                {validation.errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            )}
+            {validation.warnings.length > 0 && (
+              <ul className="mt-2 list-inside list-disc text-sm text-amber-600 dark:text-amber-400">
+                {validation.warnings.map((warn, i) => (
+                  <li key={i}>{warn}</li>
+                ))}
+              </ul>
+            )}
+            {validation.isLegal && validation.warnings.length === 0 && (
+              <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">Deck is legal.</p>
+            )}
+
+            <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <h3 className="text-sm font-medium">Across all formats</h3>
+              <p className="mt-1 text-sm text-zinc-500">
+                Regardless of which format this deck is assigned to above, here&apos;s where it currently stands.
+              </p>
+              {formats.length === 0 ? (
+                <p className="mt-3 text-sm text-zinc-500">No formats configured yet.</p>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-2">
+                  {allFormatResults.map(({ format, result }) => (
+                    <li
+                      key={format.id}
+                      className="rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">{format.name}</span>
+                        <span
+                          className={
+                            result.isLegal
+                              ? "rounded px-1.5 py-0.5 text-xs text-emerald-800 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
+                              : "rounded px-1.5 py-0.5 text-xs text-red-800 bg-red-100 dark:bg-red-950 dark:text-red-300"
+                          }
+                        >
+                          {result.isLegal
+                            ? "Legal"
+                            : `${result.errors.length} issue${result.errors.length === 1 ? "" : "s"}`}
+                        </span>
+                      </div>
+                      {!result.isLegal && (
+                        <ul className="mt-1.5 list-inside list-disc text-xs text-red-600 dark:text-red-400">
+                          {result.errors.map((err, i) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Inventory comparison lives in a slide-out panel rather than inline,
+          so the main flow stays Leader -> decklist by default. */}
+      <button
+        onClick={() => setShowInventoryPanel(true)}
+        aria-label="Compare to inventory"
+        className="fixed top-1/2 right-0 z-40 -translate-y-1/2 rounded-l-md border border-r-0 border-zinc-300 bg-white px-2 py-3 text-sm font-medium text-zinc-600 shadow-md hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        style={{ writingMode: "vertical-rl" }}
+      >
+        Inventory
+      </button>
+
+      <div
+        onClick={() => setShowInventoryPanel(false)}
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity ${
+          showInventoryPanel ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+      <div
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-sm transform overflow-y-auto border-l border-zinc-200 bg-white p-4 shadow-xl transition-transform duration-300 dark:border-zinc-800 dark:bg-zinc-900 ${
+          showInventoryPanel ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium">Inventory check</h2>
+          <button
+            onClick={() => setShowInventoryPanel(false)}
+            aria-label="Close"
+            className="text-sm text-zinc-500 hover:underline"
+          >
+            Close
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-zinc-500">
+          What you still need to acquire, compared against your Inventory (any art variant of a card counts).
+        </p>
+        {shortfalls.length === 0 ? (
+          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+            You own enough copies of everything in this deck.
+          </p>
+        ) : (
+          <>
+            {formatUSD(costEstimate.missingCost) && (
+              <p className="mt-2 text-sm font-medium">
+                Cost to acquire what&apos;s missing: {formatUSD(costEstimate.missingCost)}
+                {costEstimate.missingCostUnknown && " (some prices unavailable, so this is a lower bound)"}
+              </p>
+            )}
+            <ul className="mt-3 flex flex-col gap-1">
+              {shortfalls.map((s) => (
+                <li key={s.code} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate">
+                    {s.name} <span className="text-zinc-500">{s.code}</span>
+                  </span>
+                  <span className="shrink-0 rounded px-1.5 py-0.5 text-xs text-amber-800 bg-amber-100 dark:bg-amber-950 dark:text-amber-300">
+                    Own {s.owned}/{s.needed} — need {s.missing} more
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
     </div>
   );
 }

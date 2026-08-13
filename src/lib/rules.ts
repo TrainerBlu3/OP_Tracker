@@ -66,6 +66,10 @@ export function validateDeck({ leader, cards, format }: DeckValidationInput): De
 
   let totalMainDeckCards = 0;
   const leaderColors = new Set(leader?.colors ?? []);
+  // Tracks copies per card *code*, not per row -- a card's art variants
+  // (different rows, same code/stats) are the same game piece for the
+  // copy-limit rule, even though they're tracked separately for inventory.
+  const codeUsage = new Map<string, { name: string; quantity: number }>();
 
   for (const entry of cards) {
     const { card, quantity } = entry;
@@ -81,9 +85,9 @@ export function validateDeck({ leader, cards, format }: DeckValidationInput): De
 
     totalMainDeckCards += quantity;
 
-    if (quantity > maxCopies) {
-      errors.push(`"${card.name}" has ${quantity} copies, but the limit is ${maxCopies}.`);
-    }
+    const usage = codeUsage.get(card.code) ?? { name: card.name, quantity: 0 };
+    usage.quantity += quantity;
+    codeUsage.set(card.code, usage);
 
     if (leader && leaderColors.size > 0) {
       const sharesColor = card.colors.some((c) => leaderColors.has(c));
@@ -98,6 +102,14 @@ export function validateDeck({ leader, cards, format }: DeckValidationInput): De
       errors.push(`"${card.name}" is banned in ${format?.name ?? "this format"} (Block ${card.block}).`);
     } else if (card.block === UNCLASSIFIED_BLOCK) {
       warnings.push(`"${card.name}" has an unconfirmed legality block -- verify it manually.`);
+    }
+  }
+
+  for (const [code, usage] of codeUsage) {
+    if (usage.quantity > maxCopies) {
+      errors.push(
+        `"${usage.name}" (${code}) has ${usage.quantity} total copies across art variants, but the limit is ${maxCopies}.`
+      );
     }
   }
 

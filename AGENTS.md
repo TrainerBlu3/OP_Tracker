@@ -22,6 +22,10 @@ Every feature or fix lives on its own branch. Never commit directly to `main`.
   - `docs/` -- documentation only
 - One branch per logical change. Don't bundle an unrelated fix into a feature branch, or vice versa.
 
+### Concurrent AI sessions
+
+Multiple AI coding sessions/tools (a web session, an IDE session, etc.) may be working this repo at the same time. Each session must work on its own branch -- never point two sessions at the same branch name. Before starting work, check whether the branch you're about to use already has commits you didn't make; if so, stop and confirm with the user rather than force-pushing or silently merging over it (see "Pull requests" below for how the merge into `main` gets reconciled instead).
+
 ### Commits
 
 - Commit messages explain *why*, not just *what* -- the diff already shows what changed.
@@ -39,3 +43,4 @@ Every feature or fix lives on its own branch. Never commit directly to `main`.
 - Title: short, imperative summary of the change (e.g. "Add deck export to JSON").
 - Description: what changed and why, plus anything needing manual follow-up (new env vars, migrations to run, external accounts/keys to set up).
 - Don't merge with a red build/lint. Don't force-push over a branch that already has review comments without flagging it.
+- With multiple branches from concurrent sessions in flight, merge them into `main` one at a time and rebase/update the others afterward, rather than merging branches into each other directly -- `main` is the single point where everyone's work gets compared and reconciled.

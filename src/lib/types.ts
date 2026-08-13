@@ -1,6 +1,18 @@
-import type { Card, InventoryItem, Format, Deck, DeckCard } from "@/generated/prisma/client";
+import type { Card, InventoryItem, InventoryFolder, Format, Deck, DeckCard, Role } from "@/generated/prisma/client";
 
 export type CardDTO = Card;
+export type InventoryFolderDTO = InventoryFolder;
+
+/** A User row with passwordHash stripped -- what admin endpoints return. */
+export interface AdminUserDTO {
+  id: string;
+  email: string;
+  name: string | null;
+  role: Role;
+  active: boolean;
+  mustChangePassword: boolean;
+  createdAt: Date;
+}
 export type InventoryItemDTO = InventoryItem & { card: CardDTO };
 export type FormatDTO = Format;
 export type DeckListItemDTO = Deck & { leader: CardDTO | null; format: FormatDTO | null; cards: DeckCard[] };
@@ -18,3 +30,17 @@ export const COLOR_STYLES: Record<string, string> = {
   Black: "bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-200",
   Yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
 };
+
+/** Solid fills for the cost-pip badge on card tiles (vs. the pastel pill styles above). */
+export const COLOR_SOLID: Record<string, string> = {
+  Red: "bg-red-600",
+  Green: "bg-emerald-600",
+  Blue: "bg-blue-600",
+  Purple: "bg-purple-600",
+  Black: "bg-zinc-700",
+  Yellow: "bg-yellow-500",
+};
+
+export function formatBlockLabel(block: number): string {
+  return block > 0 ? `Block #${block}` : "Block unconfirmed";
+}

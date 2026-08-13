@@ -1,4 +1,8 @@
 # Runs deploy.sh once. Triggered on a schedule by op-tracker-deploy.timer.
+#
+# PATH below points at an nvm-installed Node 22 (this app's requirement)
+# rather than the system default -- see op-tracker.service for why. Keep
+# the version segment in sync with that file if you upgrade Node later.
 [Unit]
 Description=OP Tracker auto-deploy check
 
@@ -9,4 +13,5 @@ EnvironmentFile=%h/op-tracker/.env
 Environment=OP_TRACKER_REPO_DIR=%h/op-tracker
 Environment=OP_TRACKER_BRANCH=main
 Environment=OP_TRACKER_SERVICE_NAME=op-tracker
+Environment=PATH=%h/.nvm/versions/node/v22.23.2/bin:/usr/bin:/bin
 ExecStart=%h/op-tracker/deploy/deploy.sh

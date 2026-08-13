@@ -9,13 +9,16 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const items = await prisma.inventoryItem.findMany({
-    where: { userId: session.user.id },
-    include: { card: true },
-    orderBy: [{ card: { setCode: "asc" } }, { card: { code: "asc" } }],
-  });
+  const [items, folders] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { userId: session.user.id },
+      include: { card: true },
+      orderBy: [{ card: { setCode: "asc" } }, { card: { code: "asc" } }],
+    }),
+    prisma.inventoryFolder.findMany({ where: { userId: session.user.id }, orderBy: { name: "asc" } }),
+  ]);
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, folders });
 }
 
 export async function POST(req: Request) {
@@ -30,17 +33,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  const { cardId, quantity, foilQty, notes } = parsed.data;
+  const { cardId, quantity, foilQty, notes, folderId } = parsed.data;
 
   const card = await prisma.card.findUnique({ where: { id: cardId } });
   if (!card) {
     return NextResponse.json({ error: "Card not found" }, { status: 404 });
   }
 
+  if (folderId) {
+    const folder = await prisma.inventoryFolder.findUnique({ where: { id: folderId } });
+    if (!folder || folder.userId !== session.user.id) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+  }
+
   const item = await prisma.inventoryItem.upsert({
     where: { userId_cardId: { userId: session.user.id, cardId } },
-    create: { userId: session.user.id, cardId, quantity, foilQty: foilQty ?? 0, notes },
-    update: { quantity, ...(foilQty !== undefined ? { foilQty } : {}), notes },
+    create: { userId: session.user.id, cardId, quantity, foilQty: foilQty ?? 0, notes, folderId },
+    // folderId is only touched here if explicitly passed, so the +/- quantity
+    // steppers (which never send it) can't accidentally clear an assignment.
+    update: { quantity, ...(foilQty !== undefined ? { foilQty } : {}), notes, ...(folderId !== undefined ? { folderId } : {}) },
     include: { card: true },
   });
 

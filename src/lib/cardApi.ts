@@ -11,6 +11,8 @@
  * mapping below.
  */
 
+import { extractRoles } from "@/lib/cardRoles";
+
 const API_BASE_URL = "https://api.apitcg.com/api";
 
 export interface RawApiTcgCardAttributes {
@@ -37,6 +39,7 @@ export interface RawApiTcgCard {
   set?: { _id?: string; name?: string; code?: string } | null;
   images?: { small?: string; medium?: string; large?: string }[] | null;
   attributes?: RawApiTcgCardAttributes;
+  markets?: { tcgplayer?: { prices?: { low?: number; mid?: number; high?: number; market?: number } } } | null;
   [key: string]: unknown;
 }
 
@@ -92,7 +95,9 @@ export async function fetchCardPage(params: FetchCardsParams = {}): Promise<ApiT
 function toStringArray(value: string | string[] | null | undefined): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value;
-  return value.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+  // apitcg.com uses ";" for multicolor cards' Color field (e.g. "Blue;Yellow")
+  // and for multi-trait Subtypes -- also accept "/" and "," seen elsewhere.
+  return value.split(/[/,;]/).map((s) => s.trim()).filter(Boolean);
 }
 
 function toInt(value: number | string | null | undefined): number | null {
@@ -116,6 +121,9 @@ export function normalizeCard(raw: RawApiTcgCard) {
   if (!code) {
     throw new Error(`Card is missing a code: ${JSON.stringify(raw)}`);
   }
+  if (raw._id === undefined || raw._id === null) {
+    throw new Error(`Card is missing an _id: ${JSON.stringify(raw)}`);
+  }
 
   const attrs = raw.attributes ?? {};
   // Derived from the code prefix (e.g. "OP16", "EB01", "ST22"), not
@@ -123,11 +131,15 @@ export function normalizeCard(raw: RawApiTcgCard) {
   // inconsistently formatted ("EB-01" vs "ST-22") when present.
   const setCode = code.split("-")[0];
   const image = raw.images?.[0];
+  const cardType = normalizeCardType(attrs.CardType);
+  const ability = attrs.Description ?? null;
+  const triggerText = attrs.Trigger ?? null;
 
   return {
+    apitcgId: String(raw._id),
     code,
     name: raw.name ?? code,
-    cardType: normalizeCardType(attrs.CardType),
+    cardType,
     colors: toStringArray(attrs.Color),
     cost: toInt(attrs.Cost),
     power: toInt(attrs.Power),
@@ -135,11 +147,14 @@ export function normalizeCard(raw: RawApiTcgCard) {
     life: toInt(attrs.Life),
     attribute: attrs.Attribute ?? null,
     family: attrs.Subtypes ?? null,
-    ability: attrs.Description ?? null,
-    triggerText: attrs.Trigger ?? null,
+    ability,
+    triggerText,
     rarity: attrs.Rarity ?? null,
     setCode,
     setName: raw.set?.name ?? null,
     imageUrl: image?.large ?? image?.medium ?? image?.small ?? null,
+    roles: extractRoles({ ability, triggerText, cardType }),
+    priceMarket: raw.markets?.tcgplayer?.prices?.market ?? null,
+    priceLow: raw.markets?.tcgplayer?.prices?.low ?? null,
   };
 }

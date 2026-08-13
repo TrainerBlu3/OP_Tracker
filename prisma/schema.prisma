@@ -18,15 +18,26 @@ enum CardType {
   DON
 }
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  passwordHash String
-  createdAt    DateTime @default(now())
+enum Role {
+  USER
+  ADMIN
+}
 
-  inventory InventoryItem[]
-  decks     Deck[]
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String?
+  passwordHash       String
+  role               Role     @default(USER)
+  active             Boolean  @default(true)
+  // Set on accounts an admin creates (temp password); forces a password
+  // change on next login before the rest of the app is reachable.
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  inventory        InventoryItem[]
+  inventoryFolders InventoryFolder[]
+  decks            Deck[]
 }
 
 /// Local catalog of cards, kept in sync with the external card data source
@@ -34,7 +45,8 @@ model User {
 /// via lib/blockMap.ts, not taken from the external source.
 model Card {
   id          String   @id @default(cuid())
-  code        String   @unique // e.g. "OP01-001"
+  apitcgId    String   @unique // apitcg.com's own product id -- unique per art printing
+  code        String // e.g. "OP01-001" -- shared across art variants of the same game card, not unique
   name        String
   cardType    CardType
   colors      String[] // e.g. ["Red"], ["Red", "Green"] for multicolor
@@ -51,6 +63,14 @@ model Card {
   setName     String?
   block       Int // legality block, derived from setCode, see lib/blockMap.ts
   imageUrl    String?
+  // Ability/timing keywords (e.g. "On Play", "Blocker", "Trigger", "Counter"),
+  // parsed from the bracketed tags in `ability`/`triggerText` -- see
+  // lib/cardRoles.ts. Not from the API; purely derived from data we already have.
+  roles       String[] @default([])
+  // TCGplayer market prices (USD) via apitcg.com's markets.tcgplayer.prices.
+  // Null when apitcg.com has no listing for this printing.
+  priceMarket Float?
+  priceLow    Float?
   updatedAt   DateTime @updatedAt
 
   inventoryItems InventoryItem[]
@@ -60,21 +80,40 @@ model Card {
   @@index([cardType])
   @@index([setCode])
   @@index([block])
+  @@index([code])
+}
+
+/// A user-created grouping for organizing their Inventory (e.g. "Blue bulk",
+/// "Trade binder"). Deleting a folder un-assigns its items rather than
+/// deleting them -- see InventoryItem.folderId's onDelete: SetNull.
+model InventoryFolder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  items InventoryItem[]
+
+  @@unique([userId, name])
 }
 
 model InventoryItem {
-  id         String   @id @default(cuid())
+  id         String           @id @default(cuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   cardId     String
-  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  quantity   Int      @default(0)
-  foilQty    Int      @default(0)
+  card       Card             @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  quantity   Int              @default(0)
+  foilQty    Int              @default(0)
   notes      String?
-  updatedAt  DateTime @updatedAt
+  folderId   String?
+  folder     InventoryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  updatedAt  DateTime         @updatedAt
 
   @@unique([userId, cardId])
   @@index([userId])
+  @@index([folderId])
 }
 
 /// A tournament/legality ruleset. Editable so it can be updated as official

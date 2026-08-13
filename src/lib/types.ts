@@ -21,6 +21,13 @@ export type DeckDetailDTO = Deck & { leader: CardDTO | null; format: FormatDTO |
 
 export const CARD_TYPES = ["LEADER", "CHARACTER", "EVENT", "STAGE", "DON"] as const;
 export const CARD_COLORS = ["Red", "Green", "Blue", "Purple", "Black", "Yellow"] as const;
+export const RARITIES = ["L", "C", "UC", "R", "SR", "SEC", "TR", "PR"] as const;
+export const SORT_FIELDS = [
+  { value: "name", label: "Name" },
+  { value: "cost", label: "Cost" },
+  { value: "power", label: "Power" },
+  { value: "price", label: "Price" },
+] as const;
 
 export const COLOR_STYLES: Record<string, string> = {
   Red: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",

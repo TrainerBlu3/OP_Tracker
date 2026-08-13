@@ -8,7 +8,7 @@ export default async function DecksPage() {
     ? await Promise.all([
         prisma.deck.findMany({
           where: { userId: session.user.id },
-          include: { leader: true, format: true, cards: true },
+          include: { leader: true, format: true, cards: { include: { card: true } } },
           orderBy: { updatedAt: "desc" },
         }),
         prisma.format.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),

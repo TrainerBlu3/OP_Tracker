@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
 import { CardTile } from "@/components/CardTile";
+import { DeckStatsPanel } from "@/components/DeckStatsPanel";
+import { computeDeckStats } from "@/lib/deckStats";
 import { validateDeck } from "@/lib/rules";
 import { type DeckDetailDTO, type DeckCardDTO, type CardDTO, type FormatDTO } from "@/lib/types";
 import { formatUSD } from "@/lib/price";
@@ -28,6 +30,7 @@ export function DeckEditorClient({
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [showImportBox, setShowImportBox] = useState(false);
   const [showLegality, setShowLegality] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [showInventoryPanel, setShowInventoryPanel] = useState(false);
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -184,6 +187,11 @@ export function DeckEditorClient({
 
     return { total, missingPriceCount, missingCost, missingCostUnknown };
   }, [deck, shortfalls]);
+
+  const deckStats = useMemo(
+    () => computeDeckStats(deck.cards.map((c) => ({ card: c.card, quantity: c.quantity }))),
+    [deck]
+  );
 
   const allFormatResults = useMemo(
     () =>
@@ -371,6 +379,17 @@ export function DeckEditorClient({
               ))}
           </div>
         )}
+      </section>
+
+      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <button
+          onClick={() => setShowStats((s) => !s)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <h2 className="font-medium">Deck stats</h2>
+          <span className="text-sm text-zinc-500 hover:underline">{showStats ? "Hide" : "Show"}</span>
+        </button>
+        {showStats && <DeckStatsPanel stats={deckStats} />}
       </section>
 
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">

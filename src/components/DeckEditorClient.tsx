@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
-import { CardThumbnail } from "@/components/CardThumbnail";
+import { CardTile } from "@/components/CardTile";
 import { validateDeck } from "@/lib/rules";
-import { COLOR_STYLES, type DeckDetailDTO, type DeckCardDTO, type CardDTO, type FormatDTO } from "@/lib/types";
+import { type DeckDetailDTO, type DeckCardDTO, type CardDTO, type FormatDTO } from "@/lib/types";
 import { formatUSD } from "@/lib/price";
 
 const MAIN_DECK_TYPES = ["CHARACTER", "EVENT", "STAGE"] as const;
@@ -225,16 +225,8 @@ export function DeckEditorClient({
           </button>
         </div>
         {deck.leader ? (
-          <div className="mt-2 flex items-center gap-2 text-sm">
-            <CardThumbnail imageUrl={deck.leader.imageUrl} />
-            <span className="font-medium">{deck.leader.name}</span>
-            <span className="text-zinc-500">{deck.leader.code}</span>
-            {deck.leader.colors.map((c) => (
-              <span key={c} className={`rounded px-1.5 py-0.5 text-xs ${COLOR_STYLES[c] ?? ""}`}>
-                {c}
-              </span>
-            ))}
-            {deck.leader.life !== null && <span className="text-zinc-500">Life {deck.leader.life}</span>}
+          <div className="mt-2 w-32">
+            <CardTile card={deck.leader} />
           </div>
         ) : (
           <p className="mt-2 text-sm text-zinc-500">No leader chosen yet.</p>
@@ -372,6 +364,7 @@ export function DeckEditorClient({
             <CardPicker
               typeOptions={MAIN_DECK_TYPES}
               format={deck.format}
+              getQuantity={(card) => quantityByCardId.get(card.id) ?? 0}
               renderAction={(card) => {
                 const qty = quantityByCardId.get(card.id) ?? 0;
                 return (
@@ -399,40 +392,34 @@ export function DeckEditorClient({
         {deck.cards.length === 0 ? (
           <p className="mt-4 text-sm text-zinc-500">No cards in the main deck yet.</p>
         ) : (
-          <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {deck.cards
               .slice()
               .sort((a, b) => a.card.code.localeCompare(b.card.code))
               .map((deckCard) => (
-                <li
+                <CardTile
                   key={deckCard.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <CardThumbnail imageUrl={deckCard.card.imageUrl} />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{deckCard.card.name}</p>
-                      <p className="text-xs text-zinc-500">{deckCard.card.code}</p>
+                  card={deckCard.card}
+                  quantity={deckCard.quantity}
+                  action={
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => setCardQuantity(deckCard.card, deckCard.quantity - 1)}
+                        className="h-6 w-6 rounded border border-zinc-300 text-xs dark:border-zinc-700"
+                      >
+                        -
+                      </button>
+                      <button
+                        onClick={() => setCardQuantity(deckCard.card, deckCard.quantity + 1)}
+                        className="h-6 w-6 rounded border border-zinc-300 text-xs dark:border-zinc-700"
+                      >
+                        +
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setCardQuantity(deckCard.card, deckCard.quantity - 1)}
-                      className="h-7 w-7 rounded border border-zinc-300 text-sm dark:border-zinc-700"
-                    >
-                      -
-                    </button>
-                    <span className="w-6 text-center text-sm">{deckCard.quantity}</span>
-                    <button
-                      onClick={() => setCardQuantity(deckCard.card, deckCard.quantity + 1)}
-                      className="h-7 w-7 rounded border border-zinc-300 text-sm dark:border-zinc-700"
-                    >
-                      +
-                    </button>
-                  </div>
-                </li>
+                  }
+                />
               ))}
-          </ul>
+          </div>
         )}
       </section>
     </div>

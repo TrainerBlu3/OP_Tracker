@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { CardPicker } from "@/components/CardPicker";
 import { CardTile } from "@/components/CardTile";
+import { DeckStatsPanel } from "@/components/DeckStatsPanel";
+import { computeDeckStats } from "@/lib/deckStats";
 import { validateDeck } from "@/lib/rules";
 import { type DeckDetailDTO, type DeckCardDTO, type CardDTO, type FormatDTO } from "@/lib/types";
 import { formatUSD } from "@/lib/price";
@@ -28,6 +30,7 @@ export function DeckEditorClient({
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [showImportBox, setShowImportBox] = useState(false);
   const [showLegality, setShowLegality] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [showInventoryPanel, setShowInventoryPanel] = useState(false);
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -117,6 +120,33 @@ export function DeckEditorClient({
     if (res.ok) router.push("/decks");
   }
 
+  const [duplicating, setDuplicating] = useState(false);
+  async function handleDuplicateDeck() {
+    setDuplicating(true);
+    try {
+      const res = await fetch(`/api/decks/${deck.id}/duplicate`, { method: "POST" });
+      if (!res.ok) return;
+      const { deck: copy } = await res.json();
+      router.push(`/decks/${copy.id}`);
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
+  async function handleExport() {
+    // Same "4xOP16-081" format the paste-import reads, so export -> import
+    // round-trips: the leader line is detected automatically on re-import.
+    const lines: string[] = [];
+    if (deck.leader) lines.push(`1x${deck.leader.code}`);
+    for (const dc of deck.cards.slice().sort((a, b) => a.card.code.localeCompare(b.card.code))) {
+      lines.push(`${dc.quantity}x${dc.card.code}`);
+    }
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setCopyStatus("copied");
+    setTimeout(() => setCopyStatus("idle"), 2000);
+  }
+
   const quantityByCardId = new Map(deck.cards.map((c) => [c.cardId, c.quantity]));
   const totalMainDeck = deck.cards.reduce((sum, c) => sum + c.quantity, 0);
 
@@ -185,6 +215,11 @@ export function DeckEditorClient({
     return { total, missingPriceCount, missingCost, missingCostUnknown };
   }, [deck, shortfalls]);
 
+  const deckStats = useMemo(
+    () => computeDeckStats(deck.cards.map((c) => ({ card: c.card, quantity: c.quantity }))),
+    [deck]
+  );
+
   const allFormatResults = useMemo(
     () =>
       formats.map((format) => ({
@@ -223,7 +258,14 @@ export function DeckEditorClient({
               </option>
             ))}
           </select>
-          <button onClick={handleDeleteDeck} className="ml-auto text-sm text-red-600 hover:underline dark:text-red-400">
+          <button
+            onClick={handleDuplicateDeck}
+            disabled={duplicating}
+            className="ml-auto text-sm text-zinc-500 hover:underline disabled:opacity-50"
+          >
+            {duplicating ? "Duplicating..." : "Duplicate deck"}
+          </button>
+          <button onClick={handleDeleteDeck} className="text-sm text-red-600 hover:underline dark:text-red-400">
             Delete deck
           </button>
         </div>
@@ -271,6 +313,9 @@ export function DeckEditorClient({
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Main deck</h2>
           <div className="flex items-center gap-3">
+            <button onClick={handleExport} className="text-sm text-zinc-500 hover:underline">
+              {copyStatus === "copied" ? "Copied!" : "Export"}
+            </button>
             <button
               onClick={() => setShowImportBox((s) => !s)}
               className="text-sm text-zinc-500 hover:underline"
@@ -371,6 +416,17 @@ export function DeckEditorClient({
               ))}
           </div>
         )}
+      </section>
+
+      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <button
+          onClick={() => setShowStats((s) => !s)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <h2 className="font-medium">Deck stats</h2>
+          <span className="text-sm text-zinc-500 hover:underline">{showStats ? "Hide" : "Show"}</span>
+        </button>
+        {showStats && <DeckStatsPanel stats={deckStats} />}
       </section>
 
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">

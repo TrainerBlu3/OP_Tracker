@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isCardFormatLegal, type FormatRules } from "@/lib/rules";
-import { CARD_COLORS, CARD_TYPES, type CardDTO } from "@/lib/types";
+import { CARD_COLORS, CARD_TYPES, RARITIES, SORT_FIELDS, type CardDTO } from "@/lib/types";
 import { CardTile } from "@/components/CardTile";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { groupCardVariants } from "@/lib/cardVariants";
@@ -44,6 +44,14 @@ export function CardPicker({
   const [showColor2, setShowColor2] = useState(false);
   const [cardType, setCardType] = useState(lockedCardType ?? "");
   const [role, setRole] = useState("");
+  const [rarity, setRarity] = useState("");
+  const [costMin, setCostMin] = useState("");
+  const [costMax, setCostMax] = useState("");
+  const [powerMin, setPowerMin] = useState("");
+  const [powerMax, setPowerMax] = useState("");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [hideIllegal, setHideIllegal] = useState(true);
   const [cards, setCards] = useState<CardDTO[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,9 +72,16 @@ export function CardPicker({
     if (color2) p.set("color2", color2);
     if (cardType) p.set("cardType", cardType);
     if (role) p.set("role", role);
+    if (rarity) p.set("rarity", rarity);
+    if (costMin) p.set("costMin", costMin);
+    if (costMax) p.set("costMax", costMax);
+    if (powerMin) p.set("powerMin", powerMin);
+    if (powerMax) p.set("powerMax", powerMax);
+    p.set("sortBy", sortBy);
+    p.set("sortDir", sortDir);
     p.set("limit", "60");
     return p.toString();
-  }, [q, color, color2, cardType, role]);
+  }, [q, color, color2, cardType, role, rarity, costMin, costMax, powerMin, powerMax, sortBy, sortDir]);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,6 +204,32 @@ export function CardPicker({
             </option>
           ))}
         </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          {SORT_FIELDS.map((f) => (
+            <option key={f.value} value={f.value}>
+              Sort: {f.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+          title={sortDir === "asc" ? "Ascending" : "Descending"}
+          className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          {sortDir === "asc" ? "↑" : "↓"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowMoreFilters((s) => !s)}
+          className="text-sm text-zinc-500 hover:underline"
+        >
+          {showMoreFilters ? "Fewer filters" : "More filters"}
+        </button>
         {format && (
           <label className="flex items-center gap-1.5 text-xs text-zinc-500">
             <input type="checkbox" checked={hideIllegal} onChange={(e) => setHideIllegal(e.target.checked)} />
@@ -196,6 +237,59 @@ export function CardPicker({
           </label>
         )}
       </div>
+
+      {showMoreFilters && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+          <select
+            value={rarity}
+            onChange={(e) => setRarity(e.target.value)}
+            className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            <option value="">Any rarity</option>
+            {RARITIES.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-1.5 text-sm text-zinc-500">
+            Cost
+            <input
+              type="number"
+              value={costMin}
+              onChange={(e) => setCostMin(e.target.value)}
+              placeholder="min"
+              className="w-16 rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <span>–</span>
+            <input
+              type="number"
+              value={costMax}
+              onChange={(e) => setCostMax(e.target.value)}
+              placeholder="max"
+              className="w-16 rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-zinc-500">
+            Power
+            <input
+              type="number"
+              value={powerMin}
+              onChange={(e) => setPowerMin(e.target.value)}
+              placeholder="min"
+              className="w-20 rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <span>–</span>
+            <input
+              type="number"
+              value={powerMax}
+              onChange={(e) => setPowerMax(e.target.value)}
+              placeholder="max"
+              className="w-20 rounded-md border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </label>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-sm text-zinc-500">Loading...</p>

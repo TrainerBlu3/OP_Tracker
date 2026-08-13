@@ -81,6 +81,10 @@ model Card {
   @@index([setCode])
   @@index([block])
   @@index([code])
+  @@index([cost])
+  @@index([power])
+  @@index([rarity])
+  @@index([priceMarket])
 }
 
 /// A user-created grouping for organizing their Inventory (e.g. "Blue bulk",

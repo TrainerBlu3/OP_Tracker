@@ -20,6 +20,7 @@ export function DecksClient({
   const [name, setName] = useState("");
   const [formatId, setFormatId] = useState(formats[0]?.id ?? "");
   const [creating, setCreating] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   async function handleCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,6 +41,18 @@ export function DecksClient({
     const res = await fetch(`/api/decks/${deckId}`, { method: "DELETE" });
     if (!res.ok) return;
     setDecks((prev) => prev.filter((d) => d.id !== deckId));
+  }
+
+  async function handleDuplicate(deckId: string) {
+    setDuplicatingId(deckId);
+    try {
+      const res = await fetch(`/api/decks/${deckId}/duplicate`, { method: "POST" });
+      if (!res.ok) return;
+      const { deck } = await res.json();
+      router.push(`/decks/${deck.id}`);
+    } finally {
+      setDuplicatingId(null);
+    }
   }
 
   // Grouped by leader *archetype* (art variants of the same leader share a
@@ -118,12 +131,21 @@ export function DecksClient({
                         {deck.leader ? deck.leader.name : "No leader set"} &middot; {total}/{deck.format?.deckSize ?? 50} cards
                       </p>
                       <p className="text-xs text-zinc-500">{deck.format?.name ?? "No format"}</p>
-                      <button
-                        onClick={() => handleDelete(deck.id)}
-                        className="mt-1 self-start text-xs text-red-600 hover:underline dark:text-red-400"
-                      >
-                        Delete
-                      </button>
+                      <div className="mt-1 flex items-center gap-3">
+                        <button
+                          onClick={() => handleDuplicate(deck.id)}
+                          disabled={duplicatingId === deck.id}
+                          className="self-start text-xs text-zinc-500 hover:underline disabled:opacity-50"
+                        >
+                          {duplicatingId === deck.id ? "Duplicating..." : "Duplicate"}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(deck.id)}
+                          className="self-start text-xs text-red-600 hover:underline dark:text-red-400"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </li>
                   );
                 })}

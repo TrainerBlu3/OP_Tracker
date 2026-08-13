@@ -120,6 +120,33 @@ export function DeckEditorClient({
     if (res.ok) router.push("/decks");
   }
 
+  const [duplicating, setDuplicating] = useState(false);
+  async function handleDuplicateDeck() {
+    setDuplicating(true);
+    try {
+      const res = await fetch(`/api/decks/${deck.id}/duplicate`, { method: "POST" });
+      if (!res.ok) return;
+      const { deck: copy } = await res.json();
+      router.push(`/decks/${copy.id}`);
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
+  async function handleExport() {
+    // Same "4xOP16-081" format the paste-import reads, so export -> import
+    // round-trips: the leader line is detected automatically on re-import.
+    const lines: string[] = [];
+    if (deck.leader) lines.push(`1x${deck.leader.code}`);
+    for (const dc of deck.cards.slice().sort((a, b) => a.card.code.localeCompare(b.card.code))) {
+      lines.push(`${dc.quantity}x${dc.card.code}`);
+    }
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setCopyStatus("copied");
+    setTimeout(() => setCopyStatus("idle"), 2000);
+  }
+
   const quantityByCardId = new Map(deck.cards.map((c) => [c.cardId, c.quantity]));
   const totalMainDeck = deck.cards.reduce((sum, c) => sum + c.quantity, 0);
 
@@ -231,7 +258,14 @@ export function DeckEditorClient({
               </option>
             ))}
           </select>
-          <button onClick={handleDeleteDeck} className="ml-auto text-sm text-red-600 hover:underline dark:text-red-400">
+          <button
+            onClick={handleDuplicateDeck}
+            disabled={duplicating}
+            className="ml-auto text-sm text-zinc-500 hover:underline disabled:opacity-50"
+          >
+            {duplicating ? "Duplicating..." : "Duplicate deck"}
+          </button>
+          <button onClick={handleDeleteDeck} className="text-sm text-red-600 hover:underline dark:text-red-400">
             Delete deck
           </button>
         </div>
@@ -279,6 +313,9 @@ export function DeckEditorClient({
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Main deck</h2>
           <div className="flex items-center gap-3">
+            <button onClick={handleExport} className="text-sm text-zinc-500 hover:underline">
+              {copyStatus === "copied" ? "Copied!" : "Export"}
+            </button>
             <button
               onClick={() => setShowImportBox((s) => !s)}
               className="text-sm text-zinc-500 hover:underline"

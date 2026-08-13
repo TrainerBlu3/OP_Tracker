@@ -183,6 +183,19 @@ export function DeckEditorClient({
     return { total, missingPriceCount, missingCost, missingCostUnknown };
   }, [deck, shortfalls]);
 
+  const allFormatResults = useMemo(
+    () =>
+      formats.map((format) => ({
+        format,
+        result: validateDeck({
+          leader: deck.leader,
+          cards: deck.cards.map((c) => ({ card: c.card, quantity: c.quantity })),
+          format,
+        }),
+      })),
+    [deck, formats]
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
@@ -281,6 +294,45 @@ export function DeckEditorClient({
         )}
         {validation.isLegal && validation.warnings.length === 0 && (
           <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">Deck is legal.</p>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h2 className="font-medium">Legality across all formats</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Regardless of which format this deck is assigned to above, here&apos;s where it currently stands.
+        </p>
+        {formats.length === 0 ? (
+          <p className="mt-3 text-sm text-zinc-500">No formats configured yet.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {allFormatResults.map(({ format, result }) => (
+              <li
+                key={format.id}
+                className="rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{format.name}</span>
+                  <span
+                    className={
+                      result.isLegal
+                        ? "rounded px-1.5 py-0.5 text-xs text-emerald-800 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
+                        : "rounded px-1.5 py-0.5 text-xs text-red-800 bg-red-100 dark:bg-red-950 dark:text-red-300"
+                    }
+                  >
+                    {result.isLegal ? "Legal" : `${result.errors.length} issue${result.errors.length === 1 ? "" : "s"}`}
+                  </span>
+                </div>
+                {!result.isLegal && (
+                  <ul className="mt-1.5 list-inside list-disc text-xs text-red-600 dark:text-red-400">
+                    {result.errors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

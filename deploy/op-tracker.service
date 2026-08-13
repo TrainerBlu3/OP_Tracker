@@ -16,6 +16,12 @@
 # *other* app first. Give that other app's service file the inverse
 # (CPUWeight=50, OOMScoreAdjust=100) so the two are relative to each
 # other, not just this one alone against the default.
+#
+# PATH below points at an nvm-installed Node 22 (this app's requirement)
+# rather than the system default -- systemd --user units don't source
+# .bashrc/.nvmrc, so nvm's PATH changes aren't picked up automatically.
+# Update the version segment if you `nvm install` a newer Node later;
+# check the active path with `which node` after `nvm use`.
 
 [Unit]
 Description=OP Tracker web app
@@ -25,6 +31,7 @@ After=network.target
 Type=simple
 WorkingDirectory=%h/op-tracker
 EnvironmentFile=%h/op-tracker/.env
+Environment=PATH=%h/.nvm/versions/node/v22.23.2/bin:/usr/bin:/bin
 ExecStart=/usr/bin/env npm run start -- --port 3001
 Restart=on-failure
 RestartSec=5

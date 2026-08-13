@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isCardFormatLegal, type FormatRules } from "@/lib/rules";
-import { CARD_COLORS, CARD_TYPES, COLOR_STYLES, type CardDTO } from "@/lib/types";
+import { CARD_COLORS, CARD_TYPES, type CardDTO } from "@/lib/types";
+import { CardTile } from "@/components/CardTile";
 import { CardThumbnail } from "@/components/CardThumbnail";
 import { groupCardVariants } from "@/lib/cardVariants";
 import { ALL_ROLES } from "@/lib/cardRoles";
@@ -24,6 +25,8 @@ interface CardPickerProps {
    * tracking exactly which printing you physically own.
    */
   groupVariants?: boolean;
+  /** When set, shows a quantity badge on each tile (e.g. copies already owned/in the deck). */
+  getQuantity?: (card: CardDTO) => number;
 }
 
 export function CardPicker({
@@ -32,6 +35,7 @@ export function CardPicker({
   lockedCardType,
   format,
   groupVariants = true,
+  getQuantity,
 }: CardPickerProps) {
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
@@ -84,8 +88,9 @@ export function CardPicker({
     };
   }, [params]);
 
-  const visibleCards =
-    format && hideIllegal ? cards.filter((c) => isCardFormatLegal(c, format)) : cards;
+  const visibleCards = cards
+    .filter((c) => typeOptions.includes(c.cardType))
+    .filter((c) => (format && hideIllegal ? isCardFormatLegal(c, format) : true));
 
   const groups = useMemo(
     () =>
@@ -206,38 +211,25 @@ export function CardPicker({
             Showing {groups.length} card{groups.length === 1 ? "" : "s"} ({visibleCards.length} printing
             {visibleCards.length === 1 ? "" : "s"}) of {total}
           </p>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {groups.map((group) => {
               const selectedIdx = variantIndex[group.key] ?? 0;
               const card = group.variants[selectedIdx] ?? group.variants[0];
               const legal = format ? isCardFormatLegal(card, format) : true;
               const illegalReason = !legal ? `Banned in ${format?.name} (Block ${card.block})` : undefined;
+              const price = formatUSD(card.priceMarket);
               return (
-                <li
+                <CardTile
                   key={group.key}
-                  className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm ${
-                    illegalReason
-                      ? "border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/40"
-                      : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
-                  }`}
-                  title={illegalReason}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <CardThumbnail imageUrl={card.imageUrl} />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{group.baseName}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-zinc-500">
-                        <span>{card.code}</span>
-                        {card.colors.map((c) => (
-                          <span key={c} className={`rounded px-1.5 py-0.5 ${COLOR_STYLES[c] ?? ""}`}>
-                            {c}
-                          </span>
-                        ))}
-                        {card.cost !== null && <span>Cost {card.cost}</span>}
-                        {formatUSD(card.priceMarket) && <span>{formatUSD(card.priceMarket)}</span>}
-                      </div>
-                      {card.roles.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
+                  card={card}
+                  displayName={group.baseName}
+                  quantity={getQuantity?.(card)}
+                  illegalReason={illegalReason}
+                  extra={
+                    <div className="flex flex-col gap-1">
+                      {(price || card.roles.length > 0) && (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {price && <span className="text-[10px] text-zinc-500">{price}</span>}
                           {card.roles.map((r) => (
                             <span
                               key={r}
@@ -249,7 +241,7 @@ export function CardPicker({
                         </div>
                       )}
                       {group.variants.length > 1 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1">
                           {group.variants.map((v, i) => (
                             <button
                               key={v.id}
@@ -267,14 +259,13 @@ export function CardPicker({
                           ))}
                         </div>
                       )}
-                      {illegalReason && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{illegalReason}</p>}
                     </div>
-                  </div>
-                  <div className="shrink-0">{renderAction(card)}</div>
-                </li>
+                  }
+                  action={renderAction(card)}
+                />
               );
             })}
-          </ul>
+          </div>
         </>
       )}
     </div>

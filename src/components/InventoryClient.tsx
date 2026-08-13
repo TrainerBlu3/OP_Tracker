@@ -229,6 +229,7 @@ export function InventoryClient({
         <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <CardPicker
             groupVariants={false}
+            getQuantity={(card) => quantityByCardId.get(card.id) ?? 0}
             renderAction={(card) => {
               const qty = quantityByCardId.get(card.id) ?? 0;
               return (

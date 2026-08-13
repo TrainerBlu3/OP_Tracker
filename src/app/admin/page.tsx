@@ -7,7 +7,7 @@ export default async function AdminPage() {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") notFound();
 
-  const [users, userCount, deckCount, inventoryItemCount] = await Promise.all([
+  const [users, userCount, deckCount, inventoryItemCount, cardCount] = await Promise.all([
     prisma.user.findMany({
       select: {
         id: true,
@@ -23,6 +23,7 @@ export default async function AdminPage() {
     prisma.user.count(),
     prisma.deck.count(),
     prisma.inventoryItem.count(),
+    prisma.card.count(),
   ]);
 
   return (
@@ -33,7 +34,7 @@ export default async function AdminPage() {
       </div>
       <AdminClient
         initialUsers={users}
-        stats={{ userCount, deckCount, inventoryItemCount }}
+        stats={{ userCount, deckCount, inventoryItemCount, cardCount }}
         currentUserId={session.user.id}
       />
     </div>

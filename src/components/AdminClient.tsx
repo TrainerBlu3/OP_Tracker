@@ -9,7 +9,7 @@ export function AdminClient({
   currentUserId,
 }: {
   initialUsers: AdminUserDTO[];
-  stats: { userCount: number; deckCount: number; inventoryItemCount: number };
+  stats: { userCount: number; deckCount: number; inventoryItemCount: number; cardCount: number };
   currentUserId: string;
 }) {
   const [users, setUsers] = useState<AdminUserDTO[]>(initialUsers);
@@ -18,6 +18,9 @@ export function AdminClient({
   const [role, setRole] = useState<"USER" | "ADMIN">("USER");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<{ upserted: number; pages: number; at: Date } | null>(null);
   // The temp password for whichever user was just created/reset -- shown
   // once, never retrievable again after this, matching how the server
   // only ever returns it in that one response.
@@ -88,9 +91,37 @@ export function AdminClient({
     }
   }
 
+  // apitcg.com pages 100 cards at a time -- a rough estimate of how many
+  // requests a full sync costs, so the confirm dialog can warn against
+  // quota before it's spent (apitcg.com plans are request-capped).
+  const estimatedRequests = Math.ceil(stats.cardCount / 100) + 1;
+
+  async function syncCardCatalog() {
+    const confirmed = window.confirm(
+      `This will page through the full apitcg.com catalog -- about ${estimatedRequests} API requests. Continue?`
+    );
+    if (!confirmed) return;
+
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/admin/sync-cards", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncError(data.error ?? "Card sync failed");
+        return;
+      }
+      setSyncResult({ upserted: data.upserted, pages: data.pages, at: new Date() });
+    } catch {
+      setSyncError("Card sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <p className="text-xs uppercase text-zinc-500">Users</p>
           <p className="text-2xl font-semibold">{stats.userCount}</p>
@@ -102,6 +133,10 @@ export function AdminClient({
         <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <p className="text-xs uppercase text-zinc-500">Inventory rows</p>
           <p className="text-2xl font-semibold">{stats.inventoryItemCount}</p>
+        </div>
+        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <p className="text-xs uppercase text-zinc-500">Cards</p>
+          <p className="text-2xl font-semibold">{stats.cardCount}</p>
         </div>
       </div>
 
@@ -122,6 +157,29 @@ export function AdminClient({
           </button>
         </div>
       )}
+
+      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h2 className="font-medium">Card catalog</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Pulls the latest cards and prices from apitcg.com. Each run costs API quota (~{estimatedRequests} requests
+          at the current catalog size), so run this on demand -- e.g. monthly, or after a new set releases -- rather
+          than automatically.
+        </p>
+        <button
+          onClick={syncCardCatalog}
+          disabled={syncing}
+          className="mt-3 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          {syncing ? "Syncing..." : "Sync card catalog"}
+        </button>
+        {syncError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{syncError}</p>}
+        {syncResult && (
+          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+            Synced {syncResult.upserted} cards across {syncResult.pages} pages at{" "}
+            {syncResult.at.toLocaleTimeString()}.
+          </p>
+        )}
+      </section>
 
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="font-medium">Create account</h2>

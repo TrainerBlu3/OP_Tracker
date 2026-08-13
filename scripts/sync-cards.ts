@@ -18,6 +18,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
 import { fetchCardPage, normalizeCard } from "../src/lib/cardApi";
 import { getBlockForSetCode } from "../src/lib/blockMap";
+import { syncAllCards } from "../src/lib/cardSync";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -39,7 +40,13 @@ async function main() {
     return;
   }
 
-  const setFilter = set?.toUpperCase();
+  if (!set) {
+    const { upserted, pages } = await syncAllCards(prisma);
+    console.log(`Done. Upserted ${upserted} cards across ${pages} pages.`);
+    return;
+  }
+
+  const setFilter = set.toUpperCase();
   let page = 1;
   let upserted = 0;
 
@@ -50,7 +57,7 @@ async function main() {
 
     for (const raw of cards) {
       const normalized = normalizeCard(raw);
-      if (setFilter && normalized.setCode.toUpperCase() !== setFilter) continue;
+      if (normalized.setCode.toUpperCase() !== setFilter) continue;
       const block = getBlockForSetCode(normalized.setCode);
       await prisma.card.upsert({
         where: { apitcgId: normalized.apitcgId },

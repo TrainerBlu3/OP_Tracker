@@ -1,0 +1,39 @@
+name: Build and release
+
+# Compiles the app off the deploy VM (a 1GB e2-micro -- see PLAN.md
+# Workstream D). deploy/deploy.sh downloads this release's artifact instead
+# of running `npm run build` on the box.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Package artifact
+        run: tar czf build.tar.gz .next generated public package.json package-lock.json prisma
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete deploy --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create deploy build.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Deploy $(git rev-parse --short "$GITHUB_SHA")" \
+            --notes "Automated build for $GITHUB_SHA"

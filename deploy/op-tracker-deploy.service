@@ -13,5 +13,6 @@ EnvironmentFile=%h/op-tracker/.env
 Environment=OP_TRACKER_REPO_DIR=%h/op-tracker
 Environment=OP_TRACKER_REPO=TrainerBlu3/OP_Tracker
 Environment=OP_TRACKER_SERVICE_NAME=op-tracker
+Environment=OP_TRACKER_HEALTH_URL=http://localhost:3001/api/health
 Environment=PATH=%h/.nvm/versions/node/v22.23.2/bin:/usr/bin:/bin
 ExecStart=%h/op-tracker/deploy/deploy.sh

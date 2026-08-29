@@ -98,10 +98,10 @@ Meta decks / tier lists / community content (content-ops treadmill), multi-TCG s
 
 ## 6. Workstream D — Operations & infra smoothing
 
-**D1 is done and verified live in production, D2 is next up (see §8)** — VM-side builds were the prime suspect for the outage already seen; D1 moved compilation to GitHub Actions. D2 (health check + rollback) is still needed since a bad release can still get deployed with nothing to catch it.
+**D1 and D2 are done (D2 pending PR + a small VM systemd refresh), D3 is next up (see §8)** — VM-side builds were the prime suspect for the outage already seen; D1 moved compilation to GitHub Actions and D2 added a safety net so a bad release doesn't just sit there serving errors.
 
 - [x] **D1. Build off-VM** — `M`, biggest stability win. **Done and verified in production.** `.github/workflows/build-and-release.yml` builds on push to `main` and publishes a `deploy` GitHub release with the artifact (`.next` + `generated` + `package.json`/`package-lock.json` + `prisma` -- no `public/` dir, this repo doesn't have one, card art is hotlinked); `deploy/deploy.sh` downloads + extracts + `npm ci --omit=dev` + migrates + restarts instead of compiling. VM converted over: `gh` CLI installed, `GH_TOKEN` (fine-grained PAT, Contents:Read-only) set in `.env`, `REPO_DIR` is now a plain directory (not a git checkout), systemd unit updated to the new `OP_TRACKER_REPO` env var. First real deploy succeeded end-to-end, including applying the C2 index migration that hadn't reached prod yet.
-- [ ] **D2. Health check + rollback** — `S`. Add `/api/health` (checks a trivial DB query). `deploy.sh`: after restart, curl it with retries; on failure, roll back by re-running the download/extract/restart flow against the *previous* `deploy` release (not `git reset --hard` -- REPO_DIR is no longer a git checkout since D1). Log loudly. A bad deploy currently serves errors until someone notices.
+- [x] **D2. Health check + rollback** — `S`. **Done (pending PR + VM step).** Added `/api/health` (trivial `SELECT 1`, excluded from the auth proxy). Releases are now tagged `deploy-<sha>` (workflow keeps the last 5, prunes older) instead of one reused `deploy` tag, so a previous release always exists to roll back to. `deploy.sh` polls `/api/health` for ~30s after restart; on failure it re-deploys the previous release and health-checks that too, logging loudly either way (a rollback still exits nonzero so the timer's run shows as failed, on purpose -- "recovered" isn't "fine"). *VM step needed:* re-run `deploy/deploy.sh` once by hand (same as D1's step 5) to pick up the new script, and refresh `~/.config/systemd/user/op-tracker-deploy.service` for the new `OP_TRACKER_HEALTH_URL` env var (defaults to port 3001 in the repo's unit file -- adjust if this VM runs the app on a different port).
 - [ ] **D3. Uptime monitoring** — `S`, no code. Point a free external monitor (e.g. UptimeRobot) at `/api/health` (after D2) with email alerts. Document in `deploy/README-https.md`.
 - [ ] **D4. Sync robustness** — `S`. Admin-triggered catalog sync should survive apitcg 429s (sleep + resume), report partial progress, and refuse to run concurrently with itself. Check `src/lib/cardSync.ts` for what's already handled before changing it.
 - [ ] **D5. Backup note + drill** — `S`, mostly docs. Neon free tier has limited point-in-time restore. Document the restore procedure in README, and rely on C10 (CSV export) as the user-level backup. Verify a restore once.
@@ -122,7 +122,7 @@ Meta decks / tier lists / community content (content-ops treadmill), multi-TCG s
 | Order | Items | Why this order |
 |---|---|---|
 | 1 | ~~C1, C2, C3~~ | **Done** — highest daily-use value, no schema risk, independent of each other |
-| 2 | D1, D2 | Moved up from position 5: promoting to `main` now means the VM compiles the build live and unattended, with no rollback if it fails. Do this before the feature surface (and build weight) grows further. |
+| 2 | ~~D1, D2~~ | **Done** — moved up from position 5: promoting to `main` used to mean the VM compiled the build live and unattended, with no rollback if it failed. |
 | 3 | B2, B3, A2 | Makes everything else feel finished; toasts unblock E4 |
 | 4 | E1, E2 | Lock in correctness before the feature surface grows |
 | 5 | C4, C5, C6 | Rounds out P1; C5 is the first schema migration in the plan |

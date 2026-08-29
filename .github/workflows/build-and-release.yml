@@ -29,12 +29,25 @@ jobs:
         run: tar czf build.tar.gz .next generated package.json package-lock.json prisma
 
       - name: Publish release
+        # Tagged per commit (not a single reused "deploy" tag) so deploy.sh
+        # can roll back to the previous release if the new one fails its
+        # health check. `gh release create` without --prerelease/--draft
+        # makes each new one "latest", which `gh release view`/`download`
+        # resolve to automatically with no tag argument needed.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete deploy --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create deploy build.tar.gz \
+          gh release create "deploy-$(git rev-parse --short "$GITHUB_SHA")" build.tar.gz \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Deploy $(git rev-parse --short "$GITHUB_SHA")" \
             --notes "Automated build for $GITHUB_SHA"
+
+      - name: Prune old releases
+        # Keep the last 5 so a rollback target always exists without
+        # accumulating unbounded release/asset storage.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --json tagName --jq '.[5:][].tagName' \
+            | xargs -r -I{} gh release delete {} --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag

@@ -11,7 +11,7 @@ export async function GET() {
 
   const decks = await prisma.deck.findMany({
     where: { userId: session.user.id },
-    include: { leader: true, format: true, cards: true },
+    include: { leader: true, format: true, cards: { include: { card: true } } },
     orderBy: { updatedAt: "desc" },
   });
 

@@ -15,8 +15,8 @@ export interface AdminUserDTO {
 }
 export type InventoryItemDTO = InventoryItem & { card: CardDTO };
 export type FormatDTO = Format;
-export type DeckListItemDTO = Deck & { leader: CardDTO | null; format: FormatDTO | null; cards: DeckCard[] };
 export type DeckCardDTO = DeckCard & { card: CardDTO };
+export type DeckListItemDTO = Deck & { leader: CardDTO | null; format: FormatDTO | null; cards: DeckCardDTO[] };
 export type DeckDetailDTO = Deck & { leader: CardDTO | null; format: FormatDTO | null; cards: DeckCardDTO[] };
 
 export const CARD_TYPES = ["LEADER", "CHARACTER", "EVENT", "STAGE", "DON"] as const;

@@ -8,6 +8,11 @@ export default auth((req) => {
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   const isAuthApi = pathname.startsWith("/api/auth");
 
+  // Deploy's health check curls this with no session.
+  if (pathname === "/api/health") {
+    return NextResponse.next();
+  }
+
   if (!req.auth && !isPublic && !isAuthApi) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);

@@ -67,30 +67,35 @@ can't be demoted or deactivated, so you can't lock yourself out).
 
 ## Deploying to your GCP VM
 
-This repo ships an auto-deploy setup: a systemd timer on the server polls the `main` branch every 5 minutes and redeploys when it changes -- so `git push` is all you need day to day.
+`.github/workflows/build-and-release.yml` builds the app on every push to `main` and publishes the result as a GitHub release (tag `deploy`). A systemd timer on the server polls that release every 5 minutes and swaps it in -- the VM never runs `npm run build` itself, so `git push` is all you need day to day.
 
 On the VM (as the user that will run the app, not root):
 
 ```bash
-# 1. Prerequisites: Node 22+, PostgreSQL reachable from this VM, git.
+# 1. Prerequisites: Node 22+, PostgreSQL reachable from this VM, the `gh` CLI
+#    (https://cli.github.com -- apt/dnf package `gh`, so it lands on the
+#    system PATH the systemd unit already expects).
 
-# 2. Clone into ~/op-tracker (the path the units below assume)
-git clone <your-repo-url> ~/op-tracker
+# 2. Make a working directory (no longer a git clone -- deploy.sh downloads
+#    the built release instead of compiling from source)
+mkdir -p ~/op-tracker
 cd ~/op-tracker
 
 # 3. Configure
-cp .env.example .env
+cp <path-to-repo>/.env.example .env
 # fill in DATABASE_URL (pointing at your Postgres), AUTH_SECRET, and
-# AUTH_URL=https://your-domain-or-ip, APITCG_API_KEY if you're syncing cards
+# AUTH_URL=https://your-domain-or-ip, APITCG_API_KEY if you're syncing cards,
+# and GH_TOKEN=<a fine-grained PAT with this repo's Contents: Read-only
+# permission> -- gh CLI picks this up automatically, no `gh auth login` needed
 
-# 4. First-time build
-npm ci
-npm run db:migrate:deploy
-npm run build
+# 4. First-time deploy (also copies deploy.sh in from the repo)
+cp <path-to-repo>/deploy/deploy.sh .
+chmod +x deploy.sh
+OP_TRACKER_REPO_DIR="$PWD" ./deploy.sh
 
-# 5. Install the systemd --user units
+# 5. Install the systemd --user units (from the repo checkout, not this dir)
 mkdir -p ~/.config/systemd/user
-cp deploy/op-tracker.service deploy/op-tracker-deploy.service deploy/op-tracker-deploy.timer \
+cp <path-to-repo>/deploy/op-tracker.service <path-to-repo>/deploy/op-tracker-deploy.service <path-to-repo>/deploy/op-tracker-deploy.timer \
    ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now op-tracker
@@ -100,11 +105,11 @@ systemctl --user enable --now op-tracker-deploy.timer
 sudo loginctl enable-linger "$USER"
 ```
 
-From then on, pushing to `main` gets picked up within 5 minutes: `deploy/deploy.sh` fetches, and if there are new commits, hard-resets the checkout to match `origin/main`, reinstalls dependencies, runs migrations, rebuilds, and restarts the `op-tracker` service. Logs: `journalctl --user -u op-tracker-deploy -f` and `journalctl --user -u op-tracker -f`.
+From then on, pushing to `main` triggers a GitHub Actions build; within 5 minutes the timer's `deploy/deploy.sh` notices the new release, downloads the artifact, reinstalls production dependencies, runs migrations, and restarts the `op-tracker` service. Logs: `journalctl --user -u op-tracker-deploy -f` and `journalctl --user -u op-tracker -f`.
 
 Put a reverse proxy in front of port 3000 for TLS if you're exposing this beyond your own network -- with real login credentials on this app, don't run it over plain HTTP publicly. If you don't own a domain, see [deploy/README-https.md](deploy/README-https.md) for a free walkthrough using Caddy + sslip.io (a real, trusted cert with no domain purchase needed).
 
-Change the polling interval by editing `OnUnitActiveSec` in `deploy/op-tracker-deploy.timer`, and the deploy branch via `OP_TRACKER_BRANCH` in `deploy/op-tracker-deploy.service`.
+Change the polling interval by editing `OnUnitActiveSec` in `deploy/op-tracker-deploy.timer`, and the target repo via `OP_TRACKER_REPO` in `deploy/op-tracker-deploy.service`.
 
 ## Project structure
 

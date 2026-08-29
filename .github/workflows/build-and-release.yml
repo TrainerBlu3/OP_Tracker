@@ -2,7 +2,8 @@ name: Build and release
 
 # Compiles the app off the deploy VM (a 1GB e2-micro -- see PLAN.md
 # Workstream D). deploy/deploy.sh downloads this release's artifact instead
-# of running `npm run build` on the box.
+# of running `npm run build` on the box. No `public/` dir in this repo --
+# card art is hotlinked from apitcg's CDN, nothing is served locally.
 on:
   push:
     branches: [main]
@@ -25,7 +26,7 @@ jobs:
       - run: npm run build
 
       - name: Package artifact
-        run: tar czf build.tar.gz .next generated public package.json package-lock.json prisma
+        run: tar czf build.tar.gz .next generated package.json package-lock.json prisma
 
       - name: Publish release
         env:

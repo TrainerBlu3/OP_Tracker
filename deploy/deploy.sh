@@ -35,7 +35,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 gh release download deploy --repo "$REPO" --pattern build.tar.gz --dir "$TMP_DIR" --clobber
 
 log "Extracting build artifact..."
-rm -rf .next generated public prisma
+rm -rf .next generated prisma
 tar xzf "$TMP_DIR/build.tar.gz"
 
 log "Installing production dependencies..."
